@@ -2040,7 +2040,7 @@ void ^nvm_onabort@(
     nvm_on_abort ^oa = (nvm_on_abort ^)(tx=>undo_data - ((size + 7) & ~7));
 
     /* Set the USID of the function to call if applied */
-    oa=>func #= nx->usid;
+    oa=>func #= func;
 
     /* Do the default initialization for the argument. This flushes oa=>data. */
     nvm_alloc_init(oa=>data, arg, arg->size);
@@ -2199,7 +2199,7 @@ void ^nvm_oncommit@(
     oc=>prev #= tx=>commit_ops;
 
     /* Set the USID of the function to call if applied */
-    oc=>func #= nx->usid;
+    oc=>func #= func;
 
     /* Do the default initialization for the argument. This flushes oc=>data. */
     nvm_alloc_init(oc=>data, arg, arg->size);
@@ -2402,7 +2402,7 @@ void ^nvm_onunlock@(
     ou=>state #= nvm_lock_callback; // indicates this is an on unlock
 
     /* Set the USID of the function to call at unlock */
-    ou=>func #= nx->usid;
+    ou=>func #= func;
 
     /* Do the default initialization for the argument. This flushes ou=>data. */
     nvm_alloc_init(ou=>data, arg, arg->size);
@@ -2500,11 +2500,12 @@ void nvm_unlock_callback@(nvm_on_unlock ^ou)
     /* If the callback previously committed do not call again. We clear the 
      * second half of the usid within the transaction to indicate it
      * committed. */
-    if (ou=>func.d2 == 0)
+    nvm_usid ^ui = (nvm_usid^)%ou=>func;
+    if (ui=>d2 == 0)
         return;
     
     /* lookup the function address and assert if there is none */
-    void (*f@)(void^) = (void(*@)(void^))nvm_usid_volatile(ou=>func);
+    void (*f@)() = *ou=>func;
     if (f == 0)
         nvms_assert_fail("On unlock operation function missing");
 
@@ -2514,7 +2515,7 @@ void nvm_unlock_callback@(nvm_on_unlock ^ou)
         /* clear function usid in the transaction to prevent recall.
          * This is done before calling callback so a commit in the
          * callback commits this too. */
-        ou=>func.d2 @= 0;
+        ui=>d2 @= 0;
 
         /* Call the application function */
         (*f)(ou=>data);
@@ -2672,11 +2673,12 @@ void nvm_commit@()
          * operation is committed so that it will not be called again. */
         while (loc)
         {
-            /* execute  this record if not previously executed */
-            if (loc=>func.d2)
+            /* execute this record if not previously executed */
+            nvm_usid ^ui = (nvm_usid^)%loc=>func;
+            if (ui=>d2)
             {
                 /* lookup the func*tion address and assert if there is none */
-                void (*f)(void^) = (void(*)(void^))nvm_usid_volatile(loc=>func);
+                void (*f@)(void^) = *loc=>func;
                 if (f == 0)
                     nvms_assert_fail("On commit operation function missing");
 
@@ -2686,7 +2688,7 @@ void nvm_commit@()
                     /* clear function usid in the transaction to prevent recall.
                      * This is done before calling callback so a commit in the
                      * callback commits this too. */
-                    loc=>func.d2 @= 0;
+                    ui=>d2 @= 0;
 
                     /* Call the application function */
                     (*f)(loc=>data);
@@ -3109,11 +3111,12 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
             /* Call an on abort function in its own nested transaction, unless
              * it was already called. */
             nvm_on_abort ^oa = (nvm_on_abort ^)tx=>undo_data;
-            if (oa=>func.d2 == 0)
+            nvm_usid ^ui = (nvm_usid^)%oa=>func;
+            if (ui=>d2 == 0)
                 break; // already called
 
             /* Get the function pointer */
-            void (*f)(void ^) = (void (*)(void ^))nvm_usid_volatile(oa=>func);
+            void (*f@)() = *oa=>func;
 
             /* Call the function in its own nested transaction */
             @ { //nvm_txbegin(0);
@@ -3122,7 +3125,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
                  * before decrementing undo block record count. This is done
                  * before calling callback so a commit in the callback commits
                  * this too. */
-                oa=>func.d2 @= 0;
+                ui=>d2 @= 0;
 
                 /* Call the application function */
                 (*f)(oa=>data);

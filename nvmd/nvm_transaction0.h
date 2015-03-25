@@ -979,8 +979,7 @@ extern "C"
         uint8_t _pad1[3];
 
         /** This is the USID that identifies the function to call  */
-        nvm_usid func;
-//        void (|func@)(void^); TODO use correct syntax
+        void (|func@)();
 
         /** This is the data that the application wants passed to it */
         uint8_t data[];
@@ -1094,8 +1093,7 @@ extern "C"
     struct nvm_on_abort
     {
         /** This is the USID that identifies the function to call  */
-        nvm_usid func;
-//        void (|func@)(void^); TODO use correct syntax
+        void (|func@)();
 
         /** This is the data that the application wants passed to it */
         uint8_t data[];
@@ -1136,8 +1134,7 @@ extern "C"
         transient nvm_on_commit ^next;
 
         /** This is the USID that identifies the function to call  */
-        nvm_usid func;
-//        void (|func@)(void^); TODO use correct syntax
+        void (|func@)();
 
         /** This is the data that the application wants passed to it */
         uint8_t data[];
