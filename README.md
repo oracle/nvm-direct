@@ -26,12 +26,12 @@ extensions. Of course that will not work.
 
 ### Eclipse Projects: ###
 
-- **`test_onvm`:** This is a silly NVM application that tries to get most 
+- **`test_nvmd`:** This is a silly NVM application that tries to get most 
 of the library code called. It forks itself and kills its child to 
 exercise recovery.
-- **`onvm`:** This is the portable shared library. It contains the bulk of
+- **`nvmd`:** This is the portable shared library. It contains the bulk of
  the code.
-- **`onvms`:** This is a service layer that allows the library to be customized for different environments. The current service layer is for testing the library on Linux. It does not actually work with persistent memory. It needs to integrate with Intel's libpmem to actually work.
+- **`nvmds`:** This is a service layer that allows the library to be customized for different environments. The current service layer is for testing the library on Linux. It does not actually work with persistent memory. It needs to integrate with Intel's libpmem to actually work.
 
 
 ### Documents: ###

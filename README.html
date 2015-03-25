@@ -315,12 +315,12 @@ project. The configurations ending in X compile the code with the C
 extensions. Of course that will not work.</p>
 <h3>Eclipse Projects:</h3>
 <ul>
-<li><strong><code>test_onvm</code>:</strong> This is a silly NVM application that tries to get most 
+<li><strong><code>test_nvmd</code>:</strong> This is a silly NVM application that tries to get most 
 of the library code called. It forks itself and kills its child to 
 exercise recovery.</li>
-<li><strong><code>onvm</code>:</strong> This is the portable shared library. It contains the bulk of
+<li><strong><code>nvmd</code>:</strong> This is the portable shared library. It contains the bulk of
  the code.</li>
-<li><strong><code>onvms</code>:</strong> This is a service layer that allows the library to be customized for different environments. The current service layer is for testing the library on Linux. It does not actually work with persistent memory. It needs to integrate with Intel's libpmem to actually work.</li>
+<li><strong><code>nvmds</code>:</strong> This is a service layer that allows the library to be customized for different environments. The current service layer is for testing the library on Linux. It does not actually work with persistent memory. It needs to integrate with Intel's libpmem to actually work.</li>
 </ul>
 <h3>Documents:</h3>
 <p>There is some documentation in the root of the repository. This is intended
