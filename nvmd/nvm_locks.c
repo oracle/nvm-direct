@@ -95,11 +95,11 @@ void nvm_mutex_init1(
         uint8_t level
         )
 {
-    mutex=>owners #= 0;
+    mutex=>owners ~= 0;
     mutex=>x_waiters = 0;
     mutex=>s_waiters = 0;
-    mutex=>level #= level;
-    mutex=>initialized #= 1;
+    mutex=>level ~= level;
+    mutex=>initialized ~= 1;
 }
 #else
 void nvm_mutex_init1(
@@ -299,8 +299,8 @@ nvm_mutex_array ^nvm_create_mutex_array1@(
         return 0;
 
     /* initialize the mutexes, note this does not generate any undo */
-    ma=>count #= count;
-    ma=>destroyed #= 0;
+    ma=>count ~= count;
+    ma=>destroyed ~= 0;
     int i;
     for (i = 0; i < count; i++)
         nvm_mutex_init1(%ma=>mutexes[i], level);
@@ -612,14 +612,14 @@ again:
             /* Acquiring an exclusive lock is simply a matter of setting the
              * transaction slot number in the owners field. The lock state is
              * always nvm_lock_x for an exclusive lock. */
-            mutex=>owners #= tx=>slot;
+            mutex=>owners ~= tx=>slot;
 
             /* If necessary, advance the new level to reflect this lock being
              * held. If we die here with owners and new_level being
              * inconsistent, there will not be a problem since the first thing
              * recovery will do is release this lock. */
             if (mutex=>level > lk=>new_level)
-                lk=>new_level #= mutex=>level;
+                lk=>new_level ~= mutex=>level;
             nvm_persist();
 
             /* Update persists for locking. */
@@ -642,13 +642,13 @@ again:
              * count. Note that there can be at most one lock in this state on
              * a given NVM mutex since an exclusive volatile mutex is held
              * when acquiring a lock on an NVM mutex. */
-            lk=>state #= nvm_lock_acquire_s;
+            lk=>state ~= nvm_lock_acquire_s;
             nvm_persist();
-            mutex=>owners#--;
+            mutex=>owners~--;
             nvm_persist();
             if (mutex=>level > lk=>new_level)
-                lk=>new_level #= mutex=>level;
-            lk=>state #= nvm_lock_held_s;
+                lk=>new_level ~= mutex=>level;
+            lk=>state ~= nvm_lock_held_s;
             nvm_persist();
 
             /* If we waited and acquired a share lock when there were no other
@@ -1013,7 +1013,7 @@ void nvm_unlock@(nvm_transaction ^tx, nvm_thread_data *td, nvm_lkrec ^lk)
     if (excl)
     {
         /* persistently release the lock */
-        mutex=>owners #= 0;
+        mutex=>owners ~= 0;
         nvm_persist();
 
         /* Update persists for locking. */
@@ -1026,11 +1026,11 @@ void nvm_unlock@(nvm_transaction ^tx, nvm_thread_data *td, nvm_lkrec ^lk)
             nvms_corruption("Unlocking an S lock we do not own", tx, mutex);
 
         /* release the lock */
-        lk=>state #= nvm_lock_release_s;
+        lk=>state ~= nvm_lock_release_s;
         nvm_persist();
-        mutex=>owners#++; // incrementing makes less negative i.e. less waiters
+        mutex=>owners~++; // incrementing makes less negative i.e. less waiters
         nvm_persist();
-        lk=>state #= nvm_lock_free_s;
+        lk=>state ~= nvm_lock_free_s;
         nvm_persist();
 
         /* Update persists for locking. */
@@ -1289,11 +1289,11 @@ void nvm_recover_lock(nvm_trans_table_data *ttd, nvm_lkrec ^lk)
                 /* Our lock got into the owners count so fix it. Note that
                  * the new owners value must be persistent before we change 
                  * the lock state. */
-                mutex=>owners #= -cnt;
+                mutex=>owners ~= -cnt;
                 nvm_persist1(mutex);
             }
         }
-        lk=>state #= nvm_lock_free_s;
+        lk=>state ~= nvm_lock_free_s;
         break;
     }
 }

@@ -356,27 +356,27 @@ void nvm_txbegin(
         /* Remove it from the free list */
         ttd->free_trans = tx=>link;
         tx=>link = 0;
-        tx=>txnum #= ++(ttd->txnum);
+        tx=>txnum ~= ++(ttd->txnum);
         ttd->atrans_cnt++;
 
         /* Ensure the transaction is empty */
-        tx=>undo #= 0;
-        tx=>commit_ops #= 0;
-        tx=>held_locks #= 0;
-        tx=>savept_last #= 0;
-        tx=>nstd_last #= 0;
+        tx=>undo ~= 0;
+        tx=>commit_ops ~= 0;
+        tx=>held_locks ~= 0;
+        tx=>savept_last ~= 0;
+        tx=>nstd_last ~= 0;
         tx=>dead = 0;
         tx=>spawn_cnt = 0;
         tx=>parent = ptx;
         tx=>undo_ops = 0;
-        tx=>max_undo_blocks #= rd->region=>max_undo_blocks;
+        tx=>max_undo_blocks ~= rd->region=>max_undo_blocks;
         tx=>cur_undo_blocks = 0;
         nvm_prep_undo(tx);
 
         /* Ensure the transaction state is persistently stored after the
          * transaction is persistently initialized */
         nvm_persist();
-        tx=>state #= nvm_active_state;
+        tx=>state ~= nvm_active_state;
         nvm_persist();
         td->persist_tx += 2;
 
@@ -422,9 +422,9 @@ void nvm_txbegin(
 
         /* Initialize the contents of the nvm_nested. Set the link to the 
          * other nested transactions in this transaction, and the new state */
-        nt=>undo_ops #= tx=>undo_ops;
-        nt=>prev #= tx=>nstd_last;
-        nt=>state #= nvm_active_state;
+        nt=>undo_ops ~= tx=>undo_ops;
+        nt=>prev ~= tx=>nstd_last;
+        nt=>state ~= nvm_active_state;
 
         /* add the nvm_nested undo record to the transaction. */
         nvm_add_oper(tx, nvm_op_nested, size);
@@ -433,7 +433,7 @@ void nvm_txbegin(
          * but it is not in the linked list of nested transactions. If we die
          * here, rollback will ignore the record. By changing the pointer to
          * the head of the list, we atomically start the nested transaction. */
-        tx=>nstd_last #= nt;
+        tx=>nstd_last ~= nt;
         nvm_persist();
     
         /* 2 from nvm_add_oper and 1 here. */
@@ -672,7 +672,7 @@ void nvm_txend@()
         /* First remove the nvm_nested undo record from the list of nested
          * transactions. This can leave the undo record in the transaction,
          * but it is no longer the current transaction. */
-        tx=>nstd_last #= nt=>prev;
+        tx=>nstd_last ~= nt=>prev;
 
         /* Adjust the transient data to remove the undo record for the nested 
          * transaction */
@@ -683,7 +683,7 @@ void nvm_txend@()
         /* Persistently remove this operation from the transaction. This might
          * leave the first block of undo empty. This is not a problem and 
          * can save an immediate undo block allocation */
-        ub=>count#--;
+        ub=>count~--;
         nvm_persist();
         td->persist_tx += 2;
 
@@ -730,7 +730,7 @@ void nvm_txend@()
      * its state to reserved so it does not go on the freelist. This can only
      * happen if the transaction was in use when the maximum number of
      * transactions is reduced by nvm_set_txconfig. */
-    tx=>state #= reserved ? nvm_reserved_state : nvm_idle_state;
+    tx=>state ~= reserved ? nvm_reserved_state : nvm_idle_state;
     nvm_persist();
     td->persist_tx++;
 
@@ -1224,11 +1224,11 @@ void nvm_add_undo@(nvm_transaction ^tx, nvm_thread_data *td)
      * Carefully order the updates so that the undo block might be left
      * off the transaction, but never in the transaction without pointing
      * to all the older undo. */
-    ub=>txnum #= tx=>txnum; // debugging data only
-    ub=>count #= 0; // make block empty just in case
-    ub=>link #= tx=>undo; // new block points to old
+    ub=>txnum ~= tx=>txnum; // debugging data only
+    ub=>count ~= 0; // make block empty just in case
+    ub=>link ~= tx=>undo; // new block points to old
     nvm_persist(); // persists txnum and count too
-    tx=>undo #= ub; // transaction points at new block
+    tx=>undo ~= ub; // transaction points at new block
     nvm_persist();
     td->persist_undo += 2;
 
@@ -1334,11 +1334,11 @@ static void nvm_drop_undo@(nvm_transaction ^tx, nvm_undo_blk ^ub,
      * records in undo blocks. A block with a zero count will not be lost, 
      * but a transaction pointing to a block on the freelist will not 
      * recover properly. */
-    tx=>undo #= ub=>link;
+    tx=>undo ~= ub=>link;
     nvm_persist();
 
     /* Link the block to the free list. */
-    ub=>link #= ttd->free_undo;
+    ub=>link ~= ttd->free_undo;
     nvm_persist();
     ttd->free_undo = ub;
     td->persist_undo += 2;
@@ -1406,13 +1406,13 @@ void nvm_add_oper@(nvm_transaction ^tx, nvm_opcode op, size_t bytes)
     nop.opcode = op;
     nop.size = (uint16_t)bytes;
     nvm_operation ^opaddr = %((nvm_operation^)(ub=>data))[ub=>count];
-    ^opaddr #= nop;
+    ^opaddr ~= nop;
     nvm_persist();
 
     /* Atomically and persistently commit the undo operation to exist by
      * incrementing the count of undo operations in this undo block. */
-    ub=>count#++;
-    ub=>hi_count #= ub=>count; // debugging data
+    ub=>count~++;
+    ub=>hi_count ~= ub=>count; // debugging data
     nvm_persist();
 
 
@@ -1721,7 +1721,7 @@ static nvm_trans_state nvm_get_state(nvm_transaction *tx)
         r = (nvm_restore^)(tx=>undo_data - ((bytes + 7) & ~7));
 
         /* Build the operation data and ensure it is persistent */
-        r=>addr #= pt;
+        r=>addr ~= pt;
         nvm_copy(r=>data, pt, bytes - sizeof(^r));
 
         /* add the undo operation */
@@ -1844,8 +1844,8 @@ nvm_lkrec ^nvm_add_lock_op@(
      * lock in this region's transaction since we cannot point to another
      * region even if there is a parent transaction there. */
     nvm_lkrec ^plk = tx=>held_locks; // previous lock
-    lk=>prev #= plk;
-    lk=>undo_ops #= tx=>undo_ops;
+    lk=>prev ~= plk;
+    lk=>undo_ops ~= tx=>undo_ops;
 
     /* The old lock level is the new level from the most recent lock
      * acquisition, if any. Note that the most recent lock could be in a
@@ -1856,14 +1856,14 @@ nvm_lkrec ^nvm_add_lock_op@(
         plk = atx=>held_locks; // ancestor lock
         atx = atx=>parent; // ancestor transaction
     }
-    lk=>old_level #= plk ? plk=>new_level : 0;
+    lk=>old_level ~= plk ? plk=>new_level : 0;
 
     /* Since the new lock has not yet been acquired, for now the new level
      * is the same as the old. */
-    lk=>new_level #= lk=>old_level;
+    lk=>new_level ~= lk=>old_level;
 
-    lk=>state #= st;
-    lk=>mutex #= mx;
+    lk=>state ~= st;
+    lk=>mutex ~= mx;
 
     /* Add to the transaction. This makes it persistently part of the 
      * transaction. */
@@ -1871,7 +1871,7 @@ nvm_lkrec ^nvm_add_lock_op@(
 
     /* The operation is persistently recorded as a lock operation.
      * However it is not on the list of held locks yet. */
-    tx=>held_locks #= lk;
+    tx=>held_locks ~= lk;
     nvm_persist();
 
     /* Update persists for locking. */
@@ -2040,7 +2040,7 @@ void ^nvm_onabort@(
     nvm_on_abort ^oa = (nvm_on_abort ^)(tx=>undo_data - ((size + 7) & ~7));
 
     /* Set the USID of the function to call if applied */
-    oa=>func #= func;
+    oa=>func ~= func;
 
     /* Do the default initialization for the argument. This flushes oa=>data. */
     nvm_alloc_init(oa=>data, arg, arg->size);
@@ -2195,11 +2195,11 @@ void ^nvm_oncommit@(
     nvm_on_commit ^oc = (nvm_on_commit ^)(tx=>undo_data - ((size + 7) & ~7));
 
     /* Set the links for the other on commit operations in this transaction */
-    oc=>undo_ops #= tx=>undo_ops;
-    oc=>prev #= tx=>commit_ops;
+    oc=>undo_ops ~= tx=>undo_ops;
+    oc=>prev ~= tx=>commit_ops;
 
     /* Set the USID of the function to call if applied */
-    oc=>func #= func;
+    oc=>func ~= func;
 
     /* Do the default initialization for the argument. This flushes oc=>data. */
     nvm_alloc_init(oc=>data, arg, arg->size);
@@ -2212,7 +2212,7 @@ void ^nvm_oncommit@(
      * However it is not on the list of on commit operations so a commit now
      * would not call the operation function. Linking it to the list makes
      * it functional. */
-    tx=>commit_ops #= oc;
+    tx=>commit_ops ~= oc;
 
     td->persist_tx += 3;
 
@@ -2397,12 +2397,12 @@ void ^nvm_onunlock@(
     nvm_on_unlock ^ou = (nvm_on_unlock ^)(tx=>undo_data - ((size + 7) & ~7));
 
     /* Initialize header in common with nvm_lkrec as an on unlock operation. */
-    ou=>prev #= tx=>held_locks;
-    ou=>undo_ops #= tx=>undo_ops;
-    ou=>state #= nvm_lock_callback; // indicates this is an on unlock
+    ou=>prev ~= tx=>held_locks;
+    ou=>undo_ops ~= tx=>undo_ops;
+    ou=>state ~= nvm_lock_callback; // indicates this is an on unlock
 
     /* Set the USID of the function to call at unlock */
-    ou=>func #= func;
+    ou=>func ~= func;
 
     /* Do the default initialization for the argument. This flushes ou=>data. */
     nvm_alloc_init(ou=>data, arg, arg->size);
@@ -2413,7 +2413,7 @@ void ^nvm_onunlock@(
 
     /* The operation is persistently recorded as a on unlock operation.
      * However it is not on the list of held locks yet. */
-    tx=>held_locks #= (nvm_lkrec ^)ou;
+    tx=>held_locks ~= (nvm_lkrec ^)ou;
     nvm_persist();
 
     /* Update persists for transaction. */
@@ -2599,7 +2599,7 @@ void nvm_commit@()
         /* Committing a base transaction. Delete all undo and set base
          * transaction to committing */
         stop = 0;
-        tx=>state #= nvm_committing_state;
+        tx=>state ~= nvm_committing_state;
         nvm_persist();
     }
     else
@@ -2615,7 +2615,7 @@ void nvm_commit@()
          * operation itself has been applied, the effect of the commit is 
          * complete, */
         stop = nt=>undo_ops + 1;
-        nt=>state #= nvm_committing_state;
+        nt=>state ~= nvm_committing_state;
         nvm_persist();
     }
     td->persist_commit += 2;
@@ -2640,7 +2640,7 @@ void nvm_commit@()
      * releasing a lock and the lock will not be the head of the lock list.
      * Thus nvm_recover_lock needs to be called on all lock undo records, not
      * just the head of the list. */
-    tx=>held_locks #= lk;
+    tx=>held_locks ~= lk;
     nvm_persist();
     td->persist_commit++;
 
@@ -2704,7 +2704,7 @@ void nvm_commit@()
      * the transaction. This is makes commit_ops no longer point into the
      * undo that will be thrown away. This must be persisted before
      * releasing any undo. */
-    tx=>commit_ops #= hoc;
+    tx=>commit_ops ~= hoc;
     nvm_persist();
     td->persist_commit++;
 
@@ -2722,7 +2722,7 @@ void nvm_commit@()
         /* Mark block as empty. This means application death will result 
          * in recovery removing it from the transaction. Thread death will
          * complete the commit throwing this away if necessary. */
-        ub=>count #= 0;
+        ub=>count ~= 0;
         nvm_persist();
         td->persist_commit++;
 
@@ -2744,12 +2744,12 @@ void nvm_commit@()
     if (stop != 0)
     {
         /* nested transaction commit. Keep nvm_nested record. */
-        ub=>count #-= tx=>undo_ops - stop;
+        ub=>count ~-= tx=>undo_ops - stop;
         nvm_persist();
         tx=>undo_ops = stop;
 
         /* Transaction is now committed */
-        nt=>state #= nvm_committed_state;
+        nt=>state ~= nvm_committed_state;
         nvm_persist();
         td->persist_commit += 2;
     }
@@ -2757,7 +2757,7 @@ void nvm_commit@()
     {
         /* Base transaction committed and all undo released so change state. */
         tx=>undo_ops = 0;
-        tx=>state #= nvm_committed_state;
+        tx=>state ~= nvm_committed_state;
         nvm_persist();
         td->persist_commit++;
     }
@@ -3038,7 +3038,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
 
             /* remove the lock from the held locks list before discarding 
              * the undo persistently. */
-            tx=>held_locks #= lk=>prev;
+            tx=>held_locks ~= lk=>prev;
             nvm_persist();
             td->persist_abort++;
             break;
@@ -3052,7 +3052,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
 
             /* remove the lock from the held locks list before discarding 
              * the undo persistently. */
-            tx=>held_locks #= ou=>prev;
+            tx=>held_locks ~= ou=>prev;
             nvm_persist();
             td->persist_abort++;
             break;
@@ -3077,7 +3077,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
             }
             else
             {
-                tx=>savept_last #= psp;
+                tx=>savept_last ~= psp;
             }
 
             /* in either case persist it since it might not be persistent yet */
@@ -3145,7 +3145,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
              * list to the operation before this one is fine since it should
              * be a no-op. */
             nvm_on_commit ^oc = (nvm_on_commit ^)tx=>undo_data;
-            tx=>commit_ops #= oc=>prev;
+            tx=>commit_ops ~= oc=>prev;
             nvm_persist();
             td->persist_abort++;
             break;
@@ -3162,7 +3162,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
             tx=>undo_bytes += sizeof(uint64_t); // opcode slot available
 
         /* Persistently remove this operation from the transaction. */
-        ub=>count#--;
+        ub=>count~--;
         nvm_persist();
         td->persist_abort++;
     }
@@ -3429,7 +3429,7 @@ void nvm_abort@()
         /* Aborting a base transaction. Apply all undo and set base
          * transaction to aborting */
         stop = 0;
-        tx=>state #= nvm_aborting_state;
+        tx=>state ~= nvm_aborting_state;
         nvm_persist();
         td->persist_abort++;
     }
@@ -3447,7 +3447,7 @@ void nvm_abort@()
          * Once everything except the nested operation itself has been
          * applied, the effect of the abort is complete, */
         stop = nt=>undo_ops + 1;
-        nt=>state #= nvm_aborting_state;
+        nt=>state ~= nvm_aborting_state;
         nvm_persist();
         td->persist_abort++;
     }
@@ -3461,14 +3461,14 @@ void nvm_abort@()
     if (nt == 0)
     {
         /* This is a base transaction so the state is in *tx */
-        tx=>state #= nvm_aborted_state;
+        tx=>state ~= nvm_aborted_state;
         nvm_persist();
         td->persist_abort++;
     }
     else
     {
         /* This is a nested transaction so the state is in *nt */
-        nt=>state #= nvm_aborted_state;
+        nt=>state ~= nvm_aborted_state;
         nvm_persist();
         td->persist_abort++;
     }
@@ -3605,11 +3605,11 @@ void ^^nvm_savepoint@(
             (tx=>undo_data - sizeof(nvm_savepnt));
 
     /* Set the links for the other savepoint operations in this transaction */
-    sp=>undo_ops #= tx=>undo_ops;
-    sp=>prev #= tx=>savept_last;
+    sp=>undo_ops ~= tx=>undo_ops;
+    sp=>prev ~= tx=>savept_last;
 
     /* Store the name in the savepoint */
-    sp=>name #= name;
+    sp=>name ~= name;
 
     /* Add to the transaction. This makes it persistently part of the 
      * transaction. */
@@ -3617,7 +3617,7 @@ void ^^nvm_savepoint@(
 
     /* The operation is persistently recorded as a savepoint operation.
      * However it is not on the list of savepoints yet. */
-    tx=>savept_last #= sp;
+    tx=>savept_last ~= sp;
     nvm_persist();
 
     /* return the address of the name so that the client can change it.*/
@@ -3730,14 +3730,14 @@ int nvm_rollback@(
      * state to rollback so any on abort callbacks can tell if they are in
      * rollback to savepoint or abort. */
     if (nt)
-        nt=>state #= nvm_rollback_state;
+        nt=>state ~= nvm_rollback_state;
     else
-        tx=>state #= nvm_rollback_state;
+        tx=>state ~= nvm_rollback_state;
     nvm_apply_undo(tx, stop, td); // rollback
     if (nt)
-        nt=>state #= nvm_active_state;
+        nt=>state ~= nvm_active_state;
     else
-        tx=>state #= nvm_active_state;
+        tx=>state ~= nvm_active_state;
 
     return 1;
 }
@@ -3966,8 +3966,8 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
      * that if the transaction table list is updated then we are sure that
      * the limits were updated. This is also idempotent in case it is caled
      * more than once. */
-    rg=>max_transactions #= ctx=>txn_slots;
-    rg=>max_undo_blocks #= ctx=>undo_limit;
+    rg=>max_transactions ~= ctx=>txn_slots;
+    rg=>max_undo_blocks ~= ctx=>undo_limit;
     nvm_persist(); // ensure this becomes persistent 
 
     /* This may have reduced the maximum number of concurrent transactions
@@ -3998,7 +3998,7 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
             /* This transaction should be reserved. No undo is needed since
              * the new config is committed. If we die here this will be rerun
              * at recovery and complete fixing the freelist. */
-            ftx=>state #= nvm_reserved_state;
+            ftx=>state ~= nvm_reserved_state;
             nvm_persist();
             ttd->rtrans_cnt++; // one more reserved
 
@@ -4038,7 +4038,7 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
             {
                 /* Make idle and put at head of freelist. The new state will
                  * persist as part of committing the current transaction. */
-                tx=>state #= nvm_idle_state;
+                tx=>state ~= nvm_idle_state;
                 tx=>link = ttd->free_trans;
                 ttd->free_trans = tx;
                 ttd->rtrans_cnt--; // one less reserved
@@ -4086,7 +4086,7 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
 
     /* Add new transaction tables to the region and ensure it is persistent.
      * This is the effective commit of this transaction. */
-    ltt=>link #= att;
+    ltt=>link ~= att;
     nvm_persist();
 
     /* Scan the new transaction tables adding new transaction slots to the
@@ -4142,7 +4142,7 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
             nvm_verify(ub, shapeof(nvm_undo_blk));
 
             /* put at head of freelist */
-            ub=>link #= ttd->free_undo;
+            ub=>link ~= ttd->free_undo;
             ttd->free_undo = ub;
         }
 
@@ -4480,8 +4480,8 @@ int nvm_set_txconfig(
                 nvm_transaction ^tx = %ntt=>transactions[0];
                 for (s = 0; s < TRANS_TABLE_SLOTS; s++, tx++)
                 {
-                    tx=>slot #= slots + s + 1;
-                    tx=>state #= tx=>slot > cfg->txn_slots ?
+                    tx=>slot ~= slots + s + 1;
+                    tx=>state ~= tx=>slot > cfg->txn_slots ?
                             nvm_reserved_state : nvm_idle_state;
                 }
 
@@ -4489,7 +4489,7 @@ int nvm_set_txconfig(
                 if (att)
                 {
                     /* add at end of existing list. */
-                    ett=>link #= ntt;
+                    ett=>link ~= ntt;
                     ett = ntt;
                 }
                 else
@@ -4516,9 +4516,9 @@ int nvm_set_txconfig(
          * nothing. */
         nvm_txconfig_ctx ^ctx = 
                 nvm_onunlock(|nvm_txconfig_callback);
-        ctx=>tt_append #= att;
-        ctx=>txn_slots #= cfg->txn_slots;
-        ctx=>undo_limit #= cfg->undo_limit;
+        ctx=>tt_append ~= att;
+        ctx=>txn_slots ~= cfg->txn_slots;
+        ctx=>undo_limit ~= cfg->undo_limit;
     } //nvm_txend();
     return 1;
 }
@@ -4679,17 +4679,17 @@ void nvm_create_trans_table(
     int s;
     for (s = 0; s < TRANS_TABLE_SLOTS; s++)
     {
-        tt=>transactions[s].slot #= s + 1;
-        tt=>transactions[s].state #= s <= TRANS_TABLE_SLOTS / 2 ?
+        tt=>transactions[s].slot ~= s + 1;
+        tt=>transactions[s].state ~= s <= TRANS_TABLE_SLOTS / 2 ?
                 nvm_idle_state : nvm_reserved_state;
     }
 
     /* Update nvm_region to describe this transaction table. This configuration
      * ensures a transaction never waits for undo because there is enough
      * undo for all transactions to hit maximum. */
-    rg=>nvtt_list #= tt;    
-    rg=>max_transactions #= TRANS_TABLE_SLOTS / 2;
-    rg=>max_undo_blocks #= TRANS_TABLE_UNDO_BLKS / (TRANS_TABLE_SLOTS / 2);
+    rg=>nvtt_list ~= tt;    
+    rg=>max_transactions ~= TRANS_TABLE_SLOTS / 2;
+    rg=>max_undo_blocks ~= TRANS_TABLE_UNDO_BLKS / (TRANS_TABLE_SLOTS / 2);
 }
 #else
 void nvm_create_trans_table(   
@@ -5128,7 +5128,7 @@ void nvm_recover(nvm_desc desc)
             {
                 nvm_verify(ub, shapeof(nvm_undo_blk));
                 ub = ub=>link;
-                tx=>undo #= ub;
+                tx=>undo ~= ub;
             }
 
             /* find the highest txnum */
@@ -5154,7 +5154,7 @@ void nvm_recover(nvm_desc desc)
             case nvm_aborted_state:
             case nvm_idle_state:
                 /* ensure state is idle */
-                tx=>state #= nvm_idle_state;
+                tx=>state ~= nvm_idle_state;
 
                 /* Cleanup transient data */
                 tx=>undo_ops = 0;
@@ -5214,7 +5214,7 @@ void nvm_recover(nvm_desc desc)
                 continue;
 
             /* add to the list of free undo blocks */
-            ub=>link #= ttd->free_undo;
+            ub=>link ~= ttd->free_undo;
             ttd->free_undo = ub;
 
         }

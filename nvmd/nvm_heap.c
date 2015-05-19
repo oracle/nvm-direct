@@ -227,40 +227,40 @@ static nvm_heap ^nvm_create_baseheap(
 
     /* Initialize the nvm_blk for all the free space. It is not linked to its
      * free list until non-transactional allocation is finished. */
-    ^(nvm_usid^)nvb_begin #= nvm_usidof(nvm_blk);
-    nvb_begin=>neighbors.fwrd #= nvb_end;
-    nvb_begin=>neighbors.back #= 0;
-    nvb_begin=>group.fwrd #= 0;
-    nvb_begin=>group.back #= 0;
-    nvb_begin=>ptr #= 0;
-    nvb_begin=>allocated #= 0;
+    ^(nvm_usid^)nvb_begin ~= nvm_usidof(nvm_blk);
+    nvb_begin=>neighbors.fwrd ~= nvb_end;
+    nvb_begin=>neighbors.back ~= 0;
+    nvb_begin=>group.fwrd ~= 0;
+    nvb_begin=>group.back ~= 0;
+    nvb_begin=>ptr ~= 0;
+    nvb_begin=>allocated ~= 0;
 
     /* Initialize the nvm_blk at the very end of all NVM. It indicates it is
      * the end. It is not on any linked list, and is not free or allocated. */
-    ^(nvm_usid^)nvb_end #= nvm_usidof(nvm_blk);
-    nvb_end=>neighbors.fwrd #= 0;
-    nvb_end=>neighbors.back #= nvb_begin;
-    nvb_end=>group.fwrd #= 0;
-    nvb_end=>group.back #= 0;
-    nvb_end=>ptr #= 0;
-    nvb_end=>allocated #= 0;
+    ^(nvm_usid^)nvb_end ~= nvm_usidof(nvm_blk);
+    nvb_end=>neighbors.fwrd ~= 0;
+    nvb_end=>neighbors.back ~= nvb_begin;
+    nvb_end=>group.fwrd ~= 0;
+    nvb_end=>group.back ~= 0;
+    nvb_end=>ptr ~= 0;
+    nvb_end=>allocated ~= 0;
 
     /* Initialize the NVM heap. We consider the nvm_blk at the end of the 
      * heap to be allocated, but the nvm_blk of any free blocks are considered
      * free. When there is an allocation then all the space in the allocated 
      * block is considered consumed including its nvm_blk. */
     strncpy((void*)heap=>name, name, sizeof(heap=>name) - 1);
-    heap=>region #= rg;
-    heap=>extent #= extent;
-    heap=>rootobject #= 0;
-    heap=>psize #= (addr + bytes) - (uint8_t^)extent;
-    heap=>first #= (nvm_blk^)(heap+1);
-    heap=>size #= bytes;
+    heap=>region ~= rg;
+    heap=>extent ~= extent;
+    heap=>rootobject ~= 0;
+    heap=>psize ~= (addr + bytes) - (uint8_t^)extent;
+    heap=>first ~= (nvm_blk^)(heap+1);
+    heap=>size ~= bytes;
     nvm_mutex_init1((nvm_amutex ^)%heap=>heap_mutex, NVM_HEAP_MUTEX_LEVEL);
-    heap=>consumed #= sizeof(nvm_blk) + sizeof(nvm_heap);
-    heap=>list.head #= 0; // nothing allocated yet
-    heap=>list.tail #= 0; 
-    heap=>inuse #= slot; // allow access by creating transaction only
+    heap=>consumed ~= sizeof(nvm_blk) + sizeof(nvm_heap);
+    heap=>list.head ~= 0; // nothing allocated yet
+    heap=>list.tail ~= 0; 
+    heap=>inuse ~= slot; // allow access by creating transaction only
 
     /* copy table of freelist sizes and flush */
     nvm_copy(heap=>free_size, free_size_init, sizeof(heap=>free_size));
@@ -269,15 +269,15 @@ static nvm_heap ^nvm_create_baseheap(
     int i;
     for (i = 0; i < FREELIST_CNT; i++)
     {
-        heap=>free[i].head #= 0;
-        heap=>free[i].tail #= 0;
+        heap=>free[i].head ~= 0;
+        heap=>free[i].tail ~= 0;
     }
 
     /* enable non-transactional allocation */
-    heap=>nvb_free #= nvb_begin;
+    heap=>nvb_free ~= nvb_begin;
 
     /* set the heap usid last so it is not a valid heap until initialized */
-    ^(nvm_usid^)heap #= nvm_usidof(nvm_heap);
+    ^(nvm_usid^)heap ~= nvm_usidof(nvm_heap);
 
     return heap;
 }
@@ -401,40 +401,40 @@ void ^nvm_allocNT(nvm_heap ^heap, const nvm_type *tp)
     size_t asz = tp->size + sizeof(nvm_blk);
     if ((tp->size & (NVM_ALIGN - 1)) != 0)
         asz += NVM_ALIGN - (tp->size & (NVM_ALIGN - 1));
-    heap=>consumed #+= asz;
+    heap=>consumed ~+= asz;
 
     /* Construct a new nvm_blk for the new free chunk. Note we just made asz
      * be a multiple of sizeof(nvm_blk). */
     nvm_blk ^new_free = aloc + asz / sizeof(nvm_blk);
     nvm_blk ^end = aloc=>neighbors.fwrd;
-    ^(nvm_usid^)new_free #= nvm_usidof(nvm_blk);
-    new_free=>neighbors.fwrd #= end;
-    end=>neighbors.back #= new_free;
-    new_free=>neighbors.back #= aloc;
-    new_free=>group.fwrd #= 0; // only entry on the free list
-    new_free=>group.back #= 0; // only entry on the free list
-    new_free=>ptr #= 0; // not on free list until finalized
-    new_free=>allocated #= 0; // not allocated
+    ^(nvm_usid^)new_free ~= nvm_usidof(nvm_blk);
+    new_free=>neighbors.fwrd ~= end;
+    end=>neighbors.back ~= new_free;
+    new_free=>neighbors.back ~= aloc;
+    new_free=>group.fwrd ~= 0; // only entry on the free list
+    new_free=>group.back ~= 0; // only entry on the free list
+    new_free=>ptr ~= 0; // not on free list until finalized
+    new_free=>allocated ~= 0; // not allocated
 
     /* Make the old free nvm_blk be the tail of the allocated list. Note that 
      * the neighbor back pointer is still the same. */
     nvm_blk ^old_tail = heap=>list.tail;
-    aloc=>neighbors.fwrd #= new_free;
-    aloc=>group.fwrd #= 0; // new end of allocated list
-    aloc=>group.back #= old_tail;
-    aloc=>ptr #= heap; // point at owning Heap
-    aloc=>allocated #= tp->size; // size requested not space consumed
-    heap=>list.tail #= aloc; // heap list has a new tail
+    aloc=>neighbors.fwrd ~= new_free;
+    aloc=>group.fwrd ~= 0; // new end of allocated list
+    aloc=>group.back ~= old_tail;
+    aloc=>ptr ~= heap; // point at owning Heap
+    aloc=>allocated ~= tp->size; // size requested not space consumed
+    heap=>list.tail ~= aloc; // heap list has a new tail
     if (old_tail)
     {   /* if not the first allocation */
-        old_tail=>group.fwrd #= aloc; // point old tail to new tail
+        old_tail=>group.fwrd ~= aloc; // point old tail to new tail
     }else {
         /* new allocation is the only one in the heap. */
-        heap=>list.head #= aloc;
+        heap=>list.head ~= aloc;
     }
     
     /* Advance the free pointer*/
-    heap=>nvb_free #= new_free;
+    heap=>nvb_free ~= new_free;
 
     /* Do the standard initialization of NVM allocated data. It is just after
      * its nvm_blk.*/
@@ -550,12 +550,12 @@ void nvm_finishNT(nvm_heap ^heap)
             nvms_corruption("Bad free_size array", heap=>free, heap);
 
     /*  make the free chunk be the only entry in the freelist */
-    fl=>head #= free;
-    fl=>tail #= free;
-    free=>ptr #= fl;
+    fl=>head ~= free;
+    fl=>tail ~= free;
+    free=>ptr ~= fl;
 
     /* disable non-transactional allocation */
-    heap=>nvb_free #= 0;
+    heap=>nvb_free ~= 0;
 }
 #else
 void nvm_finishNT(nvm_heap *heap)
@@ -711,7 +711,7 @@ nvm_heap ^nvm_create_heap@(
      * need to be transactional because rollback deletes the extent.
      */
     nvm_inuse_ctx ^ctx = nvm_oncommit(|nvm_inuse_callback);
-    ctx=>heap #= heap;
+    ctx=>heap ~= heap;
 
     return heap;
 }
@@ -881,16 +881,16 @@ int nvm_resize_heap(nvm_heap ^heap, size_t psize)
         /* Create a new end nvm_blk to reflect the new size. Note that we
          * created undo above or growing and this space will be released on
          * abort, so this stores non-transactionally */
-        ^(nvm_usid^)nvb_new #= nvm_usidof(nvm_blk); // set USID
-        nvb_new=>neighbors.fwrd #= 0; // no forward from end
-        nvb_new=>neighbors.back #= nvb_last;
-        nvb_new=>group.fwrd #= 0;
-        nvb_new=>group.back #= 0;
-        nvb_new=>ptr #= 0;
-        nvb_new=>allocated #= 0;
+        ^(nvm_usid^)nvb_new ~= nvm_usidof(nvm_blk); // set USID
+        nvb_new=>neighbors.fwrd ~= 0; // no forward from end
+        nvb_new=>neighbors.back ~= nvb_last;
+        nvb_new=>group.fwrd ~= 0;
+        nvb_new=>group.back ~= 0;
+        nvb_new=>ptr ~= 0;
+        nvb_new=>allocated ~= 0;
 
         /* last now points to new end. */
-        nvb_last=>neighbors.fwrd #= nvb_new;
+        nvb_last=>neighbors.fwrd ~= nvb_new;
 
         /* put last back into correct freelist. */
         nvm_freelist_link(heap, nvb_last);
@@ -1504,15 +1504,15 @@ void ^nvm_alloc@(
 
         /* Mark the newly allocate block as allocated. Undo already generated
          * in nvm_alloc_blk. */
-        nvb=>allocated #= request; //#
+        nvb=>allocated ~= request; //#
 
         /* Add the allocation at the head of  this heap's allocated list.
          * Note that nvm_alloc_blk already created undo for *nvb. */
-        nvb=>ptr #= heap;
-        nvb=>group.back #= 0;
+        nvb=>ptr ~= heap;
+        nvb=>group.back ~= 0;
         nvm_blk ^olh = heap=>list.head; // old listhead
         heap=>list.head @= nvb;
-        nvb=>group.fwrd #= olh;
+        nvb=>group.fwrd ~= olh;
         if (olh)
         {
             /* the allocated list is not empty, so point the old head back */
@@ -1736,7 +1736,7 @@ int nvm_free@(
     /* Create an on commit operation to free this block when the current
      * transaction commits. */
     nvm_free_ctx ^ctx = nvm_oncommit(|nvm_free_callback);
-    ctx=>blk #= nvb;
+    ctx=>blk ~= nvb;
 
     /* Delete successfully queued */
     return 1;
@@ -2327,7 +2327,7 @@ static void nvm_alloc_init_1(void ^addr, const nvm_type *tp)
                 /* The self USID must always be at offset zero. */
                 if (bits != 0 || fld->count != 1)
                     nvms_assert_fail("type_usid field is wrong");
-                ^(nvm_usid^)addr #= tp->usid;
+                ^(nvm_usid^)addr ~= tp->usid;
             }
             bits += 8 * sizeof(nvm_usid) * fld->count;
             break;
@@ -2346,7 +2346,7 @@ static void nvm_alloc_init_1(void ^addr, const nvm_type *tp)
                 {
                     /* Store a null self relative pointer which is actually an
                      * offset of 1 to distinguish it from a pointer to self */
-                    ^srp #= 0; 
+                    ^srp ~= 0; 
                 }
             }
             bits += 8 * sizeof(void*) * fld->count;
@@ -2522,7 +2522,7 @@ void nvm_alloc_init(void ^addr, const nvm_type *tp, size_t size)
         {
             if (^p)
             {
-                ^p #= 0;
+                ^p ~= 0;
             }
             p++;
         }
@@ -2533,7 +2533,7 @@ void nvm_alloc_init(void ^addr, const nvm_type *tp, size_t size)
             cnt = size % 8;
             uint8_t ^p1 = (uint8_t^)p;
             while (cnt--)
-                ^p1++ #= 0;
+                ^p1++ ~= 0;
         }
     }
 
@@ -2592,7 +2592,7 @@ void nvm_alloc_init(void ^addr, const nvm_type *tp, size_t size)
                 {
                     /* Store a null self relative pointer which is actually an
                      * offset of 1 to distinguish it from a pointer to self */
-                    ^srp #= 0; 
+                    ^srp ~= 0; 
                 }
             }
             break;
@@ -2868,21 +2868,21 @@ static void nvm_freelist_link@(nvm_heap ^heap, nvm_blk ^nvb)
     {
         head=>group.back @= nvb;
         fl=>head @= nvb;
-        nvb=>group.fwrd #= head;
-        nvb=>group.back #= 0;
+        nvb=>group.fwrd ~= head;
+        nvb=>group.back ~= 0;
     }
     else
     {
         /* The freelist is empty so this becomes the only entry */
         fl=>head @= nvb;
         fl=>tail @= nvb;
-        nvb=>group.fwrd #= 0;
-        nvb=>group.back #= 0;
+        nvb=>group.fwrd ~= 0;
+        nvb=>group.back ~= 0;
     }
 
     /* Have the nvm_blk point at the correct freelist, and mark as free. */
-    nvb=>ptr #= fl;
-    nvb=>allocated #= 0;
+    nvb=>ptr ~= fl;
+    nvb=>allocated ~= 0;
 }
 #else
 static void nvm_freelist_link(nvm_heap *heap, nvm_blk *nvb)
@@ -3171,14 +3171,14 @@ static nvm_blk ^nvm_alloc_blk@(nvm_heap ^heap, size_t request, uint32_t align)
     if (new_nvb)
     {
         nvm_blk_undo(new_nvb); // Should be zero, but create undo anyway
-        ^(nvm_usid^)new_nvb #= nvm_usidof(nvm_blk);
+        ^(nvm_usid^)new_nvb ~= nvm_usidof(nvm_blk);
 
         /* link to neighboring nvm_blk's */
         nvm_blk ^next = nvb=>neighbors.fwrd;
-        new_nvb=>neighbors.fwrd #= next;
-        new_nvb=>neighbors.back #= nvb;
+        new_nvb=>neighbors.fwrd ~= next;
+        new_nvb=>neighbors.back ~= nvb;
         next=>neighbors.back @= new_nvb;
-        nvb=>neighbors.fwrd #= new_nvb; // undo OK
+        nvb=>neighbors.fwrd ~= new_nvb; // undo OK
 
         /* put the spare space back on a freelist. */
         nvm_freelist_link(heap, new_nvb);
@@ -3344,7 +3344,7 @@ static void nvm_free_blk@(nvm_heap ^heap, nvm_blk ^nvb)
         /* Link the block being freed with the one after the block being
          * merged so that there is only one block. */
         nvm_blk ^nextnext = nvb_next=>neighbors.fwrd;
-        nvb=>neighbors.fwrd #= nextnext;
+        nvb=>neighbors.fwrd ~= nextnext;
         nextnext=>neighbors.back @= nvb;
 
         /* unlink the nvm_blk being merged in from its free list. */
@@ -3368,7 +3368,7 @@ static void nvm_free_blk@(nvm_heap ^heap, nvm_blk ^nvb)
         nvm_blk_undo(nvb_prev);
 
         /* Merge the block  being released with the preceeding block */
-        nvb_prev=>neighbors.fwrd #= nvb_next;
+        nvb_prev=>neighbors.fwrd ~= nvb_next;
         nvb_next=>neighbors.back @= nvb_prev;
 
         /* Unlink the nvm_blk being merged in from its free list. It will most

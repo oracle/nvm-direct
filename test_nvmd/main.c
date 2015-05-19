@@ -676,8 +676,8 @@ void alloc1(struct counts *cnts)
         if (leaf)
         {
             newsz = size * sizeof(uint64_t) + sizeof(branch);
-            leaf=>data[0] #= newsz;
-            leaf=>version #= v;
+            leaf=>data[0] ~= newsz;
+            leaf=>version ~= v;
             cnts->alloc += newsz;
             cnts->alloc_cnt++;
             ptr[slot] @= leaf;
@@ -947,7 +947,7 @@ main(int argc, char** argv)
             int i;
             branch ^^ptr = rs=>ptr;
             for (i = 0; i < ptrs; i++)
-               ptr[i] #= 0;
+               ptr[i] ~= 0;
         }
         printf("Added an app managed extent\n");
     }
@@ -961,7 +961,7 @@ main(int argc, char** argv)
             branch ^^ptr = rs=>ptr;
             int i;
             for (i = 0; i < ptrs; i++)
-                ptr[i] #= 0;
+                ptr[i] ~= 0;
             printf("Cleared pointers when heap missing\n");
         }
     }

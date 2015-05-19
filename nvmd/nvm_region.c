@@ -341,11 +341,11 @@ nvm_desc nvm_create_region(//#
     /* set the persistent region name. */
     strncpy((char*)region=>header.name, regionname, 
             sizeof(region=>header.name) - 1);
-    region=>header.name#;
+    nvm_flush(region=>header.name, sizeof(region=>header.name));
     
     /* This NVM segment has just been created so its attach count is set to
      * one. Attach count of 0 is used to ensure no match with attach_count. */
-    region=>attach_cnt #= 1;
+    region=>attach_cnt ~= 1;
 
     /* Initialize the region mutex */
     nvm_mutex_init1((nvm_amutex^)%region=>reg_mutex, (uint8_t)210);
@@ -355,14 +355,14 @@ nvm_desc nvm_create_region(//#
      * so there is no need to check for errors. */
     nvm_heap ^rh;
     rh = (nvm_heap ^)nvm_create_rootheap(regionname, region, pspace);
-    region=>rootHeap #= rh;
+    region=>rootHeap ~= rh;
 
     /* There is no root object yet */
-    region=>rootObject #= 0;
+    region=>rootObject ~= 0;
 
     /* no extent table in the nvm_region yet. */
-    region=>extent_count #= 0;
-    region=>extents #= 0;
+    region=>extent_count ~= 0;
+    region=>extents ~= 0;
 
     /* Create the initial transaction table in NVM, and save it. It will
      * be created with all transactions and undo free. */
@@ -621,9 +621,9 @@ int nvm_set_root_object(
     /* Persistently store the new root object, then make the region valid
      * for attaching. This is not done in a transaction because we do not 
      * want recovery to make a valid region become invalid. */
-    region=>rootObject #= rootobj;
+    region=>rootObject ~= rootobj;
     nvm_persist();
-    ^usid #= nvm_usidof(nvm_region);
+    ^usid ~= nvm_usidof(nvm_region);
     nvm_persist();
 
     /* Clear the no root flag now. */
@@ -1809,8 +1809,8 @@ void ^nvm_add_extent@(
 
                         /* Initialize the new record. This needs no undo because
                          * it is in freshly allocated space.  */
-                        nx=>addr #= addr;
-                        nx=>size #= ox=>size;
+                        nx=>addr ~= addr;
+                        nx=>size ~= ox=>size;
                     }
 
                     /* Return the old extent array to the heap. */
@@ -1856,9 +1856,9 @@ void ^nvm_add_extent@(
          * following on abort operation will execute before the lock is
          * dropped. */
         nvm_remx_ctx ^fctx = nvm_onabort(|nvm_freex_callback);
-        fctx=>offset #= offset;
-        fctx=>addr #= extent;
-        fctx=>bytes #= psize;
+        fctx=>offset ~= offset;
+        fctx=>addr ~= extent;
+        fctx=>bytes ~= psize;
 
 
         /* Call the service layer to add the NVM extent to the region file. */
@@ -2219,9 +2219,9 @@ int nvm_remove_extent1@(
      * expects the extent to exist including its current contents. */
     uint8_t ^extent = addr;
     nvm_remx_ctx ^ctx = nvm_oncommit(|nvm_remx_callback);
-    ctx=>offset #= extent - (uint8_t^)rg;
-    ctx=>addr #= extent;
-    ctx=>bytes #= ext=>size; // delete whole extent
+    ctx=>offset ~= extent - (uint8_t^)rg;
+    ctx=>addr ~= extent;
+    ctx=>bytes ~= ext=>size; // delete whole extent
     return 1;
 }
 #else
@@ -2473,9 +2473,9 @@ int nvm_resize_extent1@(
          * following on abort operation will execute before the lock is
          * dropped. */
         nvm_remx_ctx ^fctx = (void^)nvm_onabort(|nvm_freex_callback);
-        fctx=>offset #= offset;
-        fctx=>addr #= addr;
-        fctx=>bytes #= bytes;
+        fctx=>offset ~= offset;
+        fctx=>addr ~= addr;
+        fctx=>bytes ~= bytes;
 
         /* Set the new size. */
         ext=>size @= psize;
@@ -2507,9 +2507,9 @@ int nvm_resize_extent1@(
      * end the nested transaction. */
 shrink:;
     nvm_remx_ctx ^ctx = nvm_oncommit(|nvm_remx_callback);
-    ctx=>offset #= (uint8_t^)extent - (uint8_t^)rg + psize;
-    ctx=>addr #= (uint8_t^)extent + psize;
-    ctx=>bytes #= ext=>size - psize; // delete excess bytes
+    ctx=>offset ~= (uint8_t^)extent - (uint8_t^)rg + psize;
+    ctx=>addr ~= (uint8_t^)extent + psize;
+    ctx=>bytes ~= ext=>size - psize; // delete excess bytes
 
     return 1;
 }
@@ -3146,7 +3146,7 @@ nvm_desc nvm_map_region(
     /* Increment attach count so that the application can recognize stale
      * transient data. */
     nvm_region ^rg = rd->region;
-    rg=>attach_cnt#++;
+    rg=>attach_cnt~++;
 
     /* Store a new attach id in the nvm_region so that we can detect a
      * duplicate attach. */
