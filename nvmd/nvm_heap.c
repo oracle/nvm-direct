@@ -545,9 +545,10 @@ void nvm_finishNT(nvm_heap ^heap)
     size_t fs = ((free=>neighbors.fwrd - free) - 1) * sizeof(nvm_blk);
     nvm_freelist ^fl = heap=>free;
     int i;
-    for (i = 0; fs > heap=>free_size[i]; i++, fl++)
-        if (i >= FREELIST_CNT)
-            nvms_corruption("Bad free_size array", heap=>free, heap);
+    for (i = 0; ((i < FREELIST_CNT) && (fs > heap=>free_size[i])); i++, fl++)
+        ;
+    if (i == FREELIST_CNT)
+        nvms_corruption("Bad free_size array", heap=>free, heap);
 
     /*  make the free chunk be the only entry in the freelist */
     fl=>head ~= free;
@@ -575,9 +576,10 @@ void nvm_finishNT(nvm_heap *heap)
                 * sizeof(nvm_blk);
     nvm_freelist *fl = heap->free;
     int i;
-    for (i = 0; fs > heap->free_size[i]; i++, fl++)
-        if (i >= FREELIST_CNT)
-            nvms_corruption("Bad free_size array", heap->free, heap);
+    for (i = 0; ((i < FREELIST_CNT) && (fs > heap->free_size[i])); i++, fl++)
+        ;
+    if (i == FREELIST_CNT)
+        nvms_corruption("Bad free_size array", heap->free, heap);
 
     /*  make the free chunk be the only entry in the freelist */
     nvm_blk_set(&fl->head, free);
