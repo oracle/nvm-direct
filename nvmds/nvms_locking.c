@@ -131,7 +131,7 @@ int nvms_lock_mutex(
     else
         ret = pthread_mutex_trylock(mx);
     if (ret && ret != EBUSY)
-        nvms_assert_fail("Invalid nvms_mutex on wait");
+        nvms_assert_fail("Invalid nvms_mutex on lock");
     if (ret)
     {
         errno = ret;

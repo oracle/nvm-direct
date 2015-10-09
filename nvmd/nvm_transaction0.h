@@ -498,8 +498,8 @@ extern "C"
 
         uint8_t _padding_to_128[128 - 112];
     };
-#endif //NVM_EXT
     extern const nvm_type nvm_type_nvm_transaction;
+#endif //NVM_EXT
 
     /**
      * This struct holds a page of undo for a single transaction. If a
@@ -635,8 +635,8 @@ extern "C"
          */
         uint8_t data[4096 - 64];
     };
-#endif //NVM_EXT
     extern const nvm_type nvm_type_nvm_undo_blk;
+#endif //NVM_EXT
 
 
     /**
@@ -720,8 +720,8 @@ extern "C"
         nvm_undo_blk undo_blks[TRANS_TABLE_UNDO_BLKS];
 
     };
-#endif //NVM_EXT
     extern const nvm_type nvm_type_nvm_trans_table;
+#endif //NVM_EXT
 
     /*************************************************************************/
     /* The following defines the structs and constants for representing undo */

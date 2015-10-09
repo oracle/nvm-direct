@@ -193,8 +193,8 @@ static void *nvms_call_txrecovery(void *ctx)
  */
 void nvms_spawn_txrecover(void *ctx)
 {
-    pthread_attr_t attr;
-    pthread_t thread;
+    pthread_attr_t      attr;
+    pthread_t           thread;
 
     /* Construct attributes to create a detached thread. */
     int e = pthread_attr_init(&attr);
@@ -203,13 +203,12 @@ void nvms_spawn_txrecover(void *ctx)
     if (e) nvms_assert_fail("pthread_attr_setdetachstate failed");
 
     /* spawn the thread. */
-    pthread_create(&thread, NULL, &nvms_call_txrecovery, ctx);
+    pthread_create(&thread, &attr, &nvms_call_txrecovery, ctx);
 
     /* destroy the attributes now that the thread is created */
     e = pthread_attr_destroy(&attr);
     if (e) nvms_assert_fail("pthread_attr_destroy failed");
 }
-
 
 /**
  * This copies data into NVM from either NVM or volatile memory. It works
@@ -231,9 +230,8 @@ void ^nvms_copy(
     size_t n         // number of bytes to copy
 ) 
 {
-    extern void nvm_flushi(void ^ptr, size_t bytes);
     memcpy((void*)dest, src, n);
-    nvm_flushi(dest,n);
+    nvms_flushi(dest,n);
     return dest;
 }
 #else
@@ -243,9 +241,8 @@ void *nvms_copy(
     size_t n         // number of bytes to copy
 ) 
 {
-    extern void nvm_flushi(void *ptr, size_t bytes);
     memcpy(dest, src, n);
-    nvm_flushi(dest,n);
+    nvms_flushi(dest,n);
     return dest;
 }
 #endif //NVM_EXT
@@ -268,10 +265,9 @@ void ^nvms_strcpy(
     const void *src // source in NVM or volatile memory
 )
 {
-    extern void nvm_flushi(void ^ptr, size_t bytes);
     size_t n = strlen(src)+1;     // number of bytes that will be copied
     strcpy((void*)dest, src);
-    nvm_flushi(dest,n);
+    nvms_flushi(dest,n);
     return dest;
 }
 #else
@@ -280,10 +276,9 @@ void *nvms_strcpy(
     const void *src // source in NVM or volatile memory
 )
 {
-    extern void nvm_flushi(void *ptr, size_t bytes);
     size_t n = strlen(src)+1;     // number of bytes that will be copied
     strcpy(dest, src);
-    nvm_flushi(dest,n);
+    nvms_flushi(dest,n);
     return dest;
 }
 #endif //NVM_EXT
@@ -308,9 +303,8 @@ void ^nvms_strncpy(
     size_t n         // number of bytes to copy
 )
 {
-    extern void nvm_flushi(void ^ptr, size_t bytes);
     strncpy((void*)dest, src, n);
-    nvm_flushi(dest,n);
+    nvms_flushi(dest,n);
     return dest;
 }
 #else
@@ -320,9 +314,8 @@ void *nvms_strncpy(
     size_t n         // number of bytes to copy
 )
 {
-    extern void nvm_flushi(void *ptr, size_t bytes);
     strncpy(dest, src, n);
-    nvm_flushi(dest,n);
+    nvms_flushi(dest,n);
     return dest;
 }
 #endif //NVM_EXT
@@ -348,9 +341,8 @@ void ^nvms_set(
     size_t n     // number of bytes to set
 )
 {
-    extern void nvm_flushi(void ^ptr, size_t bytes);
     memset((void*)dest, c, n);
-    nvm_flushi(dest,n);
+    nvms_flushi(dest,n);
     return dest;
 }
 #else
@@ -360,9 +352,91 @@ void *nvms_set(
     size_t n     // number of bytes to set
 )
 {
-    extern void nvm_flushi(void *ptr, size_t bytes);
     memset(dest, c, n);
-    nvm_flushi(dest,n);
+    nvms_flushi(dest,n);
     return dest;
+}
+#endif //NVM_EXT
+
+/**
+ * This does an immediate flush of a range of bytes rather than just saving
+ * the address for flushing before next persist. This has less overhead
+ * than scheduling the flush, but the data is lost from the processor cache.
+ *
+ * @param[in] ptr
+ * The is the first byte of NVM to flush from caches
+ *
+ * @param[in] bytes
+ * The number of bytes to flush. Pass zero to flush just one cache line.
+ */
+#ifdef NVM_EXT
+void nvms_flushi(
+        const void ^ptr,
+        size_t bytes
+        )
+{
+    /* Optimize case of just one cache line */
+    if (bytes == 0)
+    {
+        nvms_flush((uint64_t)ptr);
+        return;
+    }
+
+    /* need to get the cache line size to decide how many cache lines need
+     * flushing. */
+    nvms_parameters nparams;
+    nvms_get_params(&nparams);
+    uint64_t clsz = nparams.cache_line; // cache line size
+
+    /* Align to a cache line boundary to ensure all cache lines are covered */
+    uint64_t addr = (uint64_t)ptr;
+    uint64_t off = addr & (clsz - 1);
+    addr -= off;
+    bytes += off;
+
+    /* loop flushing one cache line each time around. */
+    while (1)
+    {
+        nvms_flush(addr);
+        if (bytes <= clsz)
+            return;
+        addr += clsz;
+        bytes -= clsz;
+    }
+}
+#else
+void nvms_flushi(
+        const void *ptr,
+        size_t bytes
+        )
+{
+    /* Optimize case of just one cache line */
+    if (bytes == 0)
+    {
+        nvms_flush((uint64_t)ptr);
+        return;
+    }
+
+    /* need to get the cache line size to decide how many cache lines need
+     * flushing. */
+    nvms_parameters nparams;
+    nvms_get_params(&nparams);
+    uint64_t clsz = nparams.cache_line; // cache line size
+
+    /* Align to a cache line boundary to ensure all cache lines are covered */
+    uint64_t addr = (uint64_t)ptr;
+    uint64_t off = addr & (clsz - 1);
+    addr -= off;
+    bytes += off;
+
+    /* loop flushing one cache line each time around. */
+    while (1)
+    {
+        nvms_flush(addr);
+        if (bytes <= clsz)
+            return;
+        addr += clsz;
+        bytes -= clsz;
+    }
 }
 #endif //NVM_EXT

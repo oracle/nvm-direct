@@ -94,8 +94,6 @@ SOFTWARE.
 #include "nvm_heap0.h"
 #include "nvm_locks0.h"
 
-extern const nvm_type nvm_type_nvm_region; //#
-extern const nvm_type nvm_type_nvm_extent; //#
 
 #ifdef NVM_EXT
 static nvm_desc nvm_map_region(
@@ -116,16 +114,20 @@ static nvm_desc nvm_map_region(
 #endif //NVM_EXT
 
 static void nvm_unmap_region(nvm_desc desc);
+
+#ifdef NVM_EXT
+#else
 /**
  * replace precompiler check for size matching
  */
 static void nvm_region_sizeof_check()
 {
-    if (sizeof(nvm_extent) != nvm_type_nvm_extent.size)
+    if (sizeof(nvm_extent) != shapeof(nvm_extent)->size)
         nvms_assert_fail("nvm_extent size wrong");
-    if (sizeof(nvm_region) != nvm_type_nvm_region.size)
+    if (sizeof(nvm_region) != shapeof(nvm_region)->size)
         nvms_assert_fail("nvm_region size wrong");
 }
+#endif //NVM_EXT
 /**
  * Check a virtual address or length for being properly aligned
  */
@@ -267,8 +269,6 @@ nvm_desc nvm_create_region(//#
         mode_t mode
         )
 {
-    nvm_region_sizeof_check(); //#
-
     /* Return an error if attach address is zero or misaligned. Also verify
      * alignment of sizes. */
     if (attach == 0 || !nvm_addr_align((void^)attach) ||
@@ -302,8 +302,15 @@ nvm_desc nvm_create_region(//#
         nvm_region_init init;
         memset(&init, 0, sizeof(init));
 
-        /* store just half of the USID */
-        init.usid.d2 = nvm_usidof(nvm_region).d2;
+        /* store the USID */
+        init.usid = nvm_usidof(nvm_region);
+
+        /* There is no root object yet. Note that since init is in volatile
+         * memory, rootObject is an absolute pointer here. Thus this puts a
+         * zero in rootObject rather than a null self-relative pointer,
+         * i.e. one. This works fine since the check for being initialized
+         * also reads init from the region file into volatile memory. */
+        init.header.rootObject = 0;
 
         /* set sizes */
         init.header.vsize = vspace;
@@ -356,9 +363,6 @@ nvm_desc nvm_create_region(//#
     nvm_heap ^rh;
     rh = (nvm_heap ^)nvm_create_rootheap(regionname, region, pspace);
     region=>rootHeap ~= rh;
-
-    /* There is no root object yet */
-    region=>rootObject ~= 0;
 
     /* no extent table in the nvm_region yet. */
     region=>extent_count ~= 0;
@@ -439,8 +443,15 @@ nvm_desc nvm_create_region(//#
         nvm_region_init init;
         memset(&init, 0, sizeof(init));
 
-        /* store just half of the USID */
-        init.usid.d2 = nvm_usidof(nvm_region).d2;
+        /* store the USID */
+        init.usid = nvm_usidof(nvm_region);
+
+        /* There is no root object yet. Note that since init is in volatile
+         * memory, rootObject is an absolute pointer here. Thus this puts a
+         * zero in rootObject rather than a null self-relative pointer,
+         * i.e. one. This works fine since the check for being initialized
+         * also reads init from the region file into volatile memory. */
+        init.header.rootObject = 0;
 
         /* set sizes */
         init.header.vsize = vspace;
@@ -493,9 +504,6 @@ nvm_desc nvm_create_region(//#
     nvm_heap *rh;    
     rh = nvm_create_rootheap(regionname, region, pspace);
     nvm_heap_set(&region->rootHeap, rh);
-
-    /* There is no root object yet */
-    void_set(&(region->rootObject), 0);    
 
     /* no extent table in the nvm_region yet. */
     region->extent_count = 0;    
@@ -587,13 +595,8 @@ int nvm_set_root_object(
         return 0;
     }
 
-    /* verify region USID is valid. Note that only d2 is set now */
-    nvm_region ^region = (nvm_region ^)rd->region;
-    nvm_usid ^usid = (nvm_usid^)region;
-    if (usid=>d2 != nvm_usidof(nvm_region).d2)
-        nvms_corruption("nvm_region USID", region, 0);
-
     /* verify root object is in the right region. */
+    nvm_region ^region = (nvm_region ^)rd->region;
     if (!nvm_region_ptr(region, (void^)rootobj))
     {
         errno = EINVAL;
@@ -609,21 +612,19 @@ int nvm_set_root_object(
     }
 
     /* Verify that the region has not already been made valid by setting a
-     * root object. It is possible that a root object was set, but the USID
-     * on the region was not set. This can only happen if the creating thread
-     * dies in the middle of setting the root object. */
-    if (nvm_usid_eq(^usid, nvm_usidof(nvm_region)))
+     * root object. Note that creation sets an absolute value of zero in
+     * the root pointer which is actually a self relative pointer to self */
+    if (region=>header.rootObject != %region=>header.rootObject)
     {
         errno = EBUSY;
         return 0;
     }
 
-    /* Persistently store the new root object, then make the region valid
+    /* Persistently store the new root object making the region valid
      * for attaching. This is not done in a transaction because we do not 
-     * want recovery to make a valid region become invalid. */
-    region=>rootObject ~= rootobj;
-    nvm_persist();
-    ^usid ~= nvm_usidof(nvm_region);
+     * want recovery to make a valid region become invalid by rolling back
+     * this store. */
+    region=>header.rootObject ~= rootobj;
     nvm_persist();
 
     /* Clear the no root flag now. */
@@ -652,12 +653,9 @@ int nvm_set_root_object(
         return 0;
     }
 
-    /* verify region USID is valid. Note that only d2 is set now */
-    nvm_region *region = rd->region;
-    if (region->type_usid.d2 != nvm_usidof(nvm_region).d2)
-        nvms_corruption("nvm_region USID", region, 0);
-
     /* verify root object is in the right region. */
+    nvm_region *region = rd->region;
+    nvm_verify(region, shapeof(nvm_region));
     if (!nvm_region_ptr(region, rootobj))
     {
         errno = EINVAL;
@@ -673,10 +671,9 @@ int nvm_set_root_object(
     }
 
     /* Verify that the region has not already been made valid by setting a
-     * root object. It is possible that a root object was set, but the USID
-     * on the region was not set. This can only happen if the creating thread
-     * dies in the middle of setting the root object. */
-    if (nvm_usid_eq(region->type_usid, nvm_usidof(nvm_region)))
+     * root object. Note that creation sets an absolute value of zero in
+     * the root pointer which is actually a self relative pointer to self */
+    if (region->header.rootObject)
     {
         errno = EBUSY;
         return 0;
@@ -684,11 +681,10 @@ int nvm_set_root_object(
 
     /* Persistently store the new root object, then make the region valid
      * for attaching. This is not done in a transaction because we do not 
-     * want recovery to make a valid region become invalid. */
-    void_set(&region->rootObject, rootobj);    
-    nvm_persist1(&region->rootObject);
-    region->type_usid = nvm_usidof(nvm_region);    
-    nvm_persist1(&region->type_usid);    
+     * want recovery to make a valid region become invalid by rolling back
+     * this store. */
+    void_set(&region->header.rootObject, rootobj);
+    nvm_persist1(&region->header.rootObject);
 
     /* Clear the no root flag now. */
     rd->noRoot = 0;
@@ -745,16 +741,16 @@ void ^nvm_new_root_object@(
     }
 
     /* get the current root object for the return value */
-    void ^old = region=>rootObject;
+    void ^old = region=>header.rootObject;
 
     /* transactionally store the new pointer */
-    region=>rootObject @= rootobj;
+    region=>header.rootObject @= rootobj;
 
     return old;
 }
 #else
-void *nvm_new_root_object(//#
-        void *rootobj //#
+void *nvm_new_root_object(
+        void *rootobj
         )
 {
     /* get application data */
@@ -778,12 +774,12 @@ void *nvm_new_root_object(//#
     }
 
     /* get the current root object for the return value */
-    void *old = void_get(&region->rootObject); //#
+    void *old = void_get(&region->header.rootObject);
 
     /* transactionally store the new pointer */
-    nvm_undo(&region->rootObject, sizeof(void*)); //#
-    void_set(&region->rootObject, rootobj); //#
-    nvm_flush1(&region->rootObject); //#
+    nvm_undo(&region->header.rootObject, sizeof(void*));
+    void_set(&region->header.rootObject, rootobj);
+    nvm_flush1(&region->header.rootObject);
 
     return old;
 }
@@ -867,8 +863,6 @@ nvm_desc nvm_attach_region(
         void *attach
         )
 {
-    nvm_region_sizeof_check(); //#
-
     /* Return an error if attach address is zero. */
     if (attach == 0 || !nvm_addr_align((void^)attach))
     {
@@ -917,13 +911,13 @@ nvm_desc nvm_attach_region(
     return desc;
 }
 #else
-nvm_desc nvm_attach_region(//#
+nvm_desc nvm_attach_region(
         nvm_desc desc,
         const char *pathname,
         void *attach
         )
 {
-    nvm_region_sizeof_check(); //#
+    nvm_region_sizeof_check();
 
     /* Return an error if attach address is zero. */
     if (attach == 0 || !nvm_addr_align(attach))
@@ -1154,7 +1148,7 @@ int nvm_query_region(
     stat->extent_cnt = rg=>extent_count;
     stat->attach_cnt = rg=>attach_cnt;
     stat->rootheap = rg=>rootHeap;
-    stat->rootobject = rg=>rootObject;
+    stat->rootobject = rg=>header.rootObject;
 
     /* return success */
     nvms_unlock_mutex(ad->mutex);
@@ -1201,7 +1195,9 @@ int nvm_query_region(
     }
 
     /* store status values */
-    nvm_region *rg = rd->region; //#
+    nvm_region *rg = rd->region;
+    if (rg->desc != desc)
+        nvms_assert_fail("nvm_desc in region is different from region data");
     stat->desc = desc;
     stat->name = rg->header.name;
     stat->base = rg;
@@ -1218,7 +1214,7 @@ int nvm_query_region(
     stat->extent_cnt = rg->extent_count;
     stat->attach_cnt = rg->attach_cnt;
     stat->rootheap = nvm_heap_get(&rg->rootHeap);
-    stat->rootobject = void_get(&rg->rootObject);
+    stat->rootobject = void_get(&rg->header.rootObject);
 
     /* return success */
     nvms_unlock_mutex(ad->mutex);
@@ -3029,11 +3025,18 @@ nvm_desc nvm_map_region(
     if (nvms_read_region(handle, &init, sizeof(init)) == 0)
         return 0;
 
-    /* If this is creation, then only half of the USID is valid, otherwise all
-     * of it should be. */
+    /* Verify this is a region file starting with the nvm_region USID */
+    if (!nvm_usid_eq(init.usid, nvm_usidof(nvm_region)))
+    {
+        errno = EBADF;
+        return 0;
+    }
+
+    /* If this is creation, then the root object pointer must be zero,
+     * otherwise it must be set. */
     if (create)
     {
-        if (init.usid.d2 != nvm_usidof(nvm_region).d2)
+        if (init.header.rootObject)
         {
             errno = EBADF;
             return 0;
@@ -3041,7 +3044,7 @@ nvm_desc nvm_map_region(
     }
     else
     {
-        if (!nvm_usid_eq(init.usid, nvm_usidof(nvm_region)))
+        if (!init.header.rootObject)
         {
             errno = EBADF;
             return 0;
@@ -3217,11 +3220,19 @@ nvm_desc nvm_map_region(
     if (nvms_read_region(handle, &init, sizeof(init)) == 0)
         return 0;
 
-    /* If this is creation, then only half of the USID is valid, otherwise all
-     * of it should be. */
+
+    /* Verify this is a region file starting with the nvm_region USID */
+    if (!nvm_usid_eq(init.usid, nvm_usidof(nvm_region)))
+    {
+        errno = EBADF;
+        return 0;
+    }
+
+    /* If this is creation, then the root object pointer must be null,
+     * otherwise it must be set. */
     if (create)
     {
-        if (init.usid.d2 != nvm_usidof(nvm_region).d2)
+        if (init.header.rootObject)
         {
             errno = EBADF;
             return 0;
@@ -3229,7 +3240,7 @@ nvm_desc nvm_map_region(
     }
     else
     {
-        if (!nvm_usid_eq(init.usid, nvm_usidof(nvm_region)))
+        if (!init.header.rootObject)
         {
             errno = EBADF;
             return 0;

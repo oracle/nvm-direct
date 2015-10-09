@@ -191,12 +191,40 @@ NVM_SRP(nvm_mutex) // define self-relative pointer operations
 #ifdef NVM_EXT
     nvm_mutex ^nvm_pick_mutex@(
         nvm_mutex_array ^array,
-        void ^ptr
+        const void ^ptr
         );
 #else
     nvm_mutex *nvm_pick_mutex(
         nvm_mutex_array *array,
-        void *ptr
+        const void *ptr
+        );
+#endif //NVM_EXT
+
+    /**
+     * Get one mutex from a mutex array by an index into the array. A pointer
+     * to the mutex is returned. If the index is past the end of the array a
+     * null pointer is returned. This must be called in a transaction. Any
+     * errors will fire an assert. This is useful for acquiring all the
+     * mutexes one at a time.
+     *
+     * @param[in] array
+     * The mutex array to pick from
+     *
+     * @param[in] index
+     * Index into the array of the mutex to return
+     *
+     * @return
+     * Pointer to the chosen mutex or null if there is none
+     */
+#ifdef NVM_EXT
+    nvm_mutex ^nvm_get_mutex@(
+        nvm_mutex_array ^array,
+        uint32_t index
+        );
+#else
+    nvm_mutex *nvm_get_mutex(
+        nvm_mutex_array *array,
+        uint32_t index
         );
 #endif //NVM_EXT
 
@@ -220,7 +248,6 @@ NVM_SRP(nvm_mutex) // define self-relative pointer operations
         nvm_mutex_array *array
         );
 #endif //NVM_EXT
-
 
     /**
      * This acquires an NVM lock and hangs it on the current transaction.  The

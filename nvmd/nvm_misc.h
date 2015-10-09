@@ -94,174 +94,6 @@ extern "C"
     };
     typedef struct nvm_jmp_buf nvm_jmp_buf;
 
-#ifdef NVM_EXT
-    /* NVM store macros not needed with compiler extensions. */
-#else
-    extern void nvm_undo( const void *data, size_t bytes);
-    extern void nvm_flush(void *ptr, size_t bytes);
-    extern void nvm_flush1(void *ptr);
-
-    /**
-     * This macro does a non-transactional store to NVM. It includes code to
-     * force the stored data to NVM on the next nvm_persist.
-     *
-     * This is mostly used for storing into a struct that was allocated in the
-     * current transaction. No undo is needed because the allocation will be
-     * undone if the transaction does not commit.
-     *
-     * Note that unlike the assignment operator this is not an expression, and
-     * the lvalue is evaluated more than once so it must not have any side
-     * effects. For example it must not be ptr++.
-     */
-#define NVM_NTSTORE(lvalue, rvalue) do { \
-    (lvalue) = (rvalue); \
-    if (sizeof(lvalue) <= 8) \
-        nvm_flush1(&(lvalue)); \
-    else \
-        nvm_flush(&(lvalue), sizeof(lvalue)); \
-    } while (0)
-
-    /**
-     * This macro does a transactional store to NVM. It includes code to
-     * generate undo and force the stored data to NVM on the next nvm_persist.
-     *
-     * This ensures the store will be undone if the transaction does not commit.
-     *
-     * Note that unlike the assignment operator this is not an expression, and
-     * the lvalue is evaluated more than once so it must not have any side
-     * effects. For example it must not be ptr++.
-     */
-#define NVM_TXSTORE(lvalue, rvalue) do { \
-    nvm_undo(&(lvalue), sizeof(lvalue)); \
-    (lvalue) = (rvalue); \
-    if (sizeof(lvalue) <= 8) \
-        nvm_flush1(&(lvalue)); \
-    else \
-        nvm_flush(&(lvalue), sizeof(lvalue)); \
-    } while (0)
-
-#endif //NVM_EXT
-
-
-#ifdef NVM_EXT
-    /* Self relative pointer functions not needed with compiler extensions. */
-#else
-    
-    /**
-     * This macro provides for typed self-relative pointers. It creates a type
-     * for the pointer, an inline function to set an absolute pointer into a
-     * self-relative pointer of the correct type, and an inline function to 
-     * get the absolute pointer from a self-relative one. 
-     *
-     * The null pointer is represented as 1 so that a self relative
-     * pointer can point at itself.
-     * 
-     * The type argument must be a single identifier giving the type to be 
-     * pointed at by the pointer. If the type needs to be multiple identifiers
-     * then use NVM_SRP2.
-     * 
-     * For example if you have a type mystruct then NVM_SRP(mystruct) defines:
-     * 
-     * typedef int64_t mystruct_srp;
-     * void mystruct_set(mystruct_srp *srp, mystruct *prt);
-     * void mystruct_txset(mystruct_srp *srp, mystruct *prt);
-     * void mystruct_ntset(mystruct_srp *srp, mystruct *prt);
-     * mystruct *mystruct_get(mystruct_srp *srp);
-     */
-#define NVM_SRP(type) \
-    \
-    /*
-     * An NVM region is not necessarily always mapped in at the same address.
-     * Thus pointers within a region are self-relative. This type represents
-     * a self-relative pointer to the desired type.
-     */\
-    typedef int64_t type##_srp; \
-    \
-    /*
-     * Store a virtual address into a typed self relative pointer. The null
-     * pointer is represented as 1 so that a self relative pointer can point
-     * at itself.
-     *
-     * The store is not flushed, and no undo is generated. There must be
-     * code that does the flush after this executes.
-     *
-     * @param[in] srp  pointer to a self - relative pointer
-     * @param[in] ptr address to store as a self relative pointer
-     */ \
-    static inline void type##_set(type##_srp *srp, type *ptr) \
-    { *srp = ptr ? (int64_t)ptr - (int64_t)srp : 1; } \
-    \
-    /*
-     * Store a virtual address into a typed self relative pointer. The null
-     * pointer is represented as 1 so that a self relative pointer can point
-     * at itself.
-     *
-     * The store is transactional so that it will be undone if the transaction
-     * does not commit.
-     *
-     * @param[in] srp  pointer to a self - relative pointer
-     * @param[in] ptr address to store as a self relative pointer
-     */ \
-    static inline void type##_txset(type##_srp *srp, type *ptr) \
-    { NVM_TXSTORE(*srp, ptr ? (int64_t)ptr - (int64_t)srp : 1); } \
-    \
-    /*
-     * Store a virtual address into a typed self relative pointer. The null
-     * pointer is represented as 1 so that a self relative pointer can point
-     * at itself.
-     *
-     * The store is non-transactional so no undo will be generated.
-     *
-     * @param[in] srp  pointer to a self - relative pointer
-     * @param[in] ptr address to store as a self relative pointer
-     */ \
-    static inline void type##_ntset(type##_srp *srp, type *ptr) \
-    { NVM_NTSTORE(*srp, ptr ? (int64_t)ptr - (int64_t)srp : 1); } \
-    \
-    /**
-     * Fetch the virtual address out of a typed self relative pointer.
-     * @param[in] srp pointer to a self - relative pointer
-     * @return The virtual address that was stored
-     */\
-    static inline type *type##_get(type##_srp *srp) \
-    { return *srp != 1 ? (void*)((int64_t)srp + *srp) : 0; }
-#/* END OF NVM_SRP MACRO */
-    
-
-    /**
-     * This macro is the same as NVM_SRP except that the type may be multiple
-     * identifiers and a single identifier must be given for constructing the
-     * names of the pointer type, the set functions, and the get function.
-     * 
-     * For example NVM_SRP2(struct mine, mystruct) defines:
-     * 
-     * typedef int64_t mystruct_srp;
-     * void mystruct_set(mystruct_srp *srp, struct mine *prt);
-     * void mystruct_txset(mystruct_srp *srp, struct mine *prt);
-     * void mystruct_ntset(mystruct_srp *srp, struct mine *prt);
-     * struct mine *mystruct_get(mystruct_srp *srp);
-     */
-#define NVM_SRP2(type, name) \
-    typedef int64_t name##_srp; \
-    \
-    static inline void name##_set(name##_srp *srp, type *ptr) \
-    { *srp = ptr ? (int64_t)ptr - (int64_t)srp : 1; } \
-    \
-    static inline void name##_txset(name##_srp *srp, type *ptr) \
-    { NVM_TXSTORE(*srp, ptr ? (int64_t)ptr - (int64_t)srp : 1); } \
-    \
-    static inline void name##_ntset(name##_srp *srp, type *ptr) \
-    { NVM_NTSTORE(*srp, ptr ? (int64_t)ptr - (int64_t)srp : 1); } \
-    \
-    static inline type *name##_get(name##_srp *srp) \
-    { return *srp != 1 ? (void*)((int64_t)srp + *srp) : 0; }
-#/* END OF NVM_SRP2 MACRO */
-    
-
-    /* define the void self-relative pointer */
-    NVM_SRP(void)
-#endif //NVM_EXT
-
     /* EXPORT FUNCTIONS */
 
     /**\brief Initialize a thread to use the NVM library.
@@ -304,12 +136,12 @@ extern "C"
      */
 #ifdef NVM_EXT
     void nvm_flush(
-        void ^ptr, 
+        const void ^ptr,
         size_t bytes
         );
 #else
     void nvm_flush(
-        void *ptr,    
+        const void *ptr,
         size_t bytes
         );
 #endif //NVM_EXT
@@ -323,11 +155,11 @@ extern "C"
      */
 #ifdef NVM_EXT
     void nvm_flush1(
-        void ^ptr 
+        const void ^ptr
         );
 #else
     void nvm_flush1(
-        void *ptr    
+        const void *ptr
         );
 #endif //NVM_EXT
     
@@ -343,15 +175,17 @@ extern "C"
      * The number of bytes to flush
      */
 #ifdef NVM_EXT
-    void nvm_flushi(
-        void ^ptr, 
+    static inline void nvm_flushi(
+        const void ^ptr,
         size_t bytes
-        );
+        )
+    { nvms_flushi(ptr, bytes); }
 #else
-    void nvm_flushi(
-        void *ptr,    
+    static inline void nvm_flushi(
+        const void *ptr,
         size_t bytes
-        );
+        )
+    { nvms_flushi(ptr, bytes); }
 #endif //NVM_EXT
     
     /**
@@ -662,6 +496,174 @@ extern "C"
         uint16_t oldval,
         uint16_t newval
         );
+
+#ifdef NVM_EXT
+    /* NVM store macros not needed with compiler extensions. */
+#else
+    extern void nvm_undo( const void *data, size_t bytes);
+    extern void nvm_flush(const void *ptr, size_t bytes);
+    extern void nvm_flush1(const void *ptr);
+
+    /**
+     * This macro does a non-transactional store to NVM. It includes code to
+     * force the stored data to NVM on the next nvm_persist.
+     *
+     * This is mostly used for storing into a struct that was allocated in the
+     * current transaction. No undo is needed because the allocation will be
+     * undone if the transaction does not commit.
+     *
+     * Note that unlike the assignment operator this is not an expression, and
+     * the lvalue is evaluated more than once so it must not have any side
+     * effects. For example it must not be ptr++.
+     */
+#define NVM_NTSTORE(lvalue, rvalue) do { \
+    (lvalue) = (rvalue); \
+    if (sizeof(lvalue) <= 8) \
+        nvm_flush1(&(lvalue)); \
+    else \
+        nvm_flush(&(lvalue), sizeof(lvalue)); \
+    } while (0)
+
+    /**
+     * This macro does a transactional store to NVM. It includes code to
+     * generate undo and force the stored data to NVM on the next nvm_persist.
+     *
+     * This ensures the store will be undone if the transaction does not commit.
+     *
+     * Note that unlike the assignment operator this is not an expression, and
+     * the lvalue is evaluated more than once so it must not have any side
+     * effects. For example it must not be ptr++.
+     */
+#define NVM_TXSTORE(lvalue, rvalue) do { \
+    nvm_undo(&(lvalue), sizeof(lvalue)); \
+    (lvalue) = (rvalue); \
+    if (sizeof(lvalue) <= 8) \
+        nvm_flush1(&(lvalue)); \
+    else \
+        nvm_flush(&(lvalue), sizeof(lvalue)); \
+    } while (0)
+
+#endif //NVM_EXT
+
+
+#ifdef NVM_EXT
+    /* Self relative pointer functions not needed with compiler extensions. */
+#else
+
+    /**
+     * This macro provides for typed self-relative pointers. It creates a type
+     * for the pointer, an inline function to set an absolute pointer into a
+     * self-relative pointer of the correct type, and an inline function to
+     * get the absolute pointer from a self-relative one.
+     *
+     * The null pointer is represented as 1 so that a self relative
+     * pointer can point at itself.
+     *
+     * The type argument must be a single identifier giving the type to be
+     * pointed at by the pointer. If the type needs to be multiple identifiers
+     * then use NVM_SRP2.
+     *
+     * For example if you have a type mystruct then NVM_SRP(mystruct) defines:
+     *
+     * typedef int64_t mystruct_srp;
+     * void mystruct_set(mystruct_srp *srp, mystruct *prt);
+     * void mystruct_txset(mystruct_srp *srp, mystruct *prt);
+     * void mystruct_ntset(mystruct_srp *srp, mystruct *prt);
+     * mystruct *mystruct_get(mystruct_srp *srp);
+     */
+#define NVM_SRP(type) \
+    \
+    /*
+     * An NVM region is not necessarily always mapped in at the same address.
+     * Thus pointers within a region are self-relative. This type represents
+     * a self-relative pointer to the desired type.
+     */\
+    typedef int64_t type##_srp; \
+    \
+    /*
+     * Store a virtual address into a typed self relative pointer. The null
+     * pointer is represented as 1 so that a self relative pointer can point
+     * at itself.
+     *
+     * The store is not flushed, and no undo is generated. There must be
+     * code that does the flush after this executes.
+     *
+     * @param[in] srp  pointer to a self - relative pointer
+     * @param[in] ptr address to store as a self relative pointer
+     */ \
+    static inline void type##_set(type##_srp *srp, type *ptr) \
+    { *srp = ptr ? (int64_t)ptr - (int64_t)srp : 1; } \
+    \
+    /*
+     * Store a virtual address into a typed self relative pointer. The null
+     * pointer is represented as 1 so that a self relative pointer can point
+     * at itself.
+     *
+     * The store is transactional so that it will be undone if the transaction
+     * does not commit.
+     *
+     * @param[in] srp  pointer to a self - relative pointer
+     * @param[in] ptr address to store as a self relative pointer
+     */ \
+    static inline void type##_txset(type##_srp *srp, type *ptr) \
+    { NVM_TXSTORE(*srp, ptr ? (int64_t)ptr - (int64_t)srp : 1); } \
+    \
+    /*
+     * Store a virtual address into a typed self relative pointer. The null
+     * pointer is represented as 1 so that a self relative pointer can point
+     * at itself.
+     *
+     * The store is non-transactional so no undo will be generated.
+     *
+     * @param[in] srp  pointer to a self - relative pointer
+     * @param[in] ptr address to store as a self relative pointer
+     */ \
+    static inline void type##_ntset(type##_srp *srp, type *ptr) \
+    { NVM_NTSTORE(*srp, ptr ? (int64_t)ptr - (int64_t)srp : 1); } \
+    \
+    /**
+     * Fetch the virtual address out of a typed self relative pointer.
+     * @param[in] srp pointer to a self - relative pointer
+     * @return The virtual address that was stored
+     */\
+    static inline type *type##_get(type##_srp *srp) \
+    { return *srp != 1 ? (void*)((int64_t)srp + *srp) : 0; }
+#/* END OF NVM_SRP MACRO */
+
+
+    /**
+     * This macro is the same as NVM_SRP except that the type may be multiple
+     * identifiers and a single identifier must be given for constructing the
+     * names of the pointer type, the set functions, and the get function.
+     *
+     * For example NVM_SRP2(struct mine, mystruct) defines:
+     *
+     * typedef int64_t mystruct_srp;
+     * void mystruct_set(mystruct_srp *srp, struct mine *prt);
+     * void mystruct_txset(mystruct_srp *srp, struct mine *prt);
+     * void mystruct_ntset(mystruct_srp *srp, struct mine *prt);
+     * struct mine *mystruct_get(mystruct_srp *srp);
+     */
+#define NVM_SRP2(type, name) \
+    typedef int64_t name##_srp; \
+    \
+    static inline void name##_set(name##_srp *srp, type *ptr) \
+    { *srp = ptr ? (int64_t)ptr - (int64_t)srp : 1; } \
+    \
+    static inline void name##_txset(name##_srp *srp, type *ptr) \
+    { NVM_TXSTORE(*srp, ptr ? (int64_t)ptr - (int64_t)srp : 1); } \
+    \
+    static inline void name##_ntset(name##_srp *srp, type *ptr) \
+    { NVM_NTSTORE(*srp, ptr ? (int64_t)ptr - (int64_t)srp : 1); } \
+    \
+    static inline type *name##_get(name##_srp *srp) \
+    { return *srp != 1 ? (void*)((int64_t)srp + *srp) : 0; }
+#/* END OF NVM_SRP2 MACRO */
+
+
+    /* define the void self-relative pointer */
+    NVM_SRP(void)
+#endif //NVM_EXT
 
 #ifdef	__cplusplus
 }

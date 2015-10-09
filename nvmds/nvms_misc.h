@@ -350,6 +350,29 @@ extern "C"
         size_t n     // number of bytes to set
         );
 #endif //NVM_EXT
+
+    /**
+     * This does an immediate flush of a range of bytes rather than just saving
+     * the address for flushing before next persist. This has less overhead
+     * than scheduling the flush, but the data is lost from the processor cache.
+     *
+     * @param[in] ptr
+     * The is the first byte of NVM to flush from caches
+     *
+     * @param[in] bytes
+     * The number of bytes to flush
+     */
+#ifdef NVM_EXT
+    void nvms_flushi(
+        const void ^ptr,
+        size_t bytes
+        );
+#else
+    void nvms_flushi(
+        const void *ptr,
+        size_t bytes
+        );
+#endif //NVM_EXT
 #ifdef	__cplusplus
 }
 #endif

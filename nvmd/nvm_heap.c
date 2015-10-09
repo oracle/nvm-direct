@@ -78,6 +78,7 @@ static nvm_heap ^nvm_create_baseheap(const char *name, nvm_region ^rg,
 static void nvm_freelist_link@(nvm_heap ^heap, nvm_blk ^nvb);
 static void nvm_freelist_unlink@(nvm_blk ^nvb);
 inline void nvm_blk_clr(nvm_blk ^nvb) { nvm_set(nvb, 0, sizeof(nvm_blk)); }
+static void nvm_alloc_init_1(void ^addr, const nvm_type *tp);
 #else
 static nvm_blk *nvm_alloc_blk(nvm_heap *heap, size_t request, uint32_t align);
 static void nvm_free_blk(nvm_heap *heap, nvm_blk *nvb);
@@ -87,6 +88,7 @@ static nvm_heap *nvm_create_baseheap(const char *name, nvm_region *rg,
 static void nvm_freelist_link(nvm_heap *heap, nvm_blk *nvb);
 static void nvm_freelist_unlink(nvm_blk *nvb);
 inline void nvm_blk_clr(nvm_blk *nvb) { nvm_set(nvb, 0, sizeof(nvm_blk)); }
+static void nvm_alloc_init_1(void *addr, const nvm_type *tp);
 #endif //NVM_EXT
 
 /**
@@ -107,7 +109,7 @@ static const size_t free_size_init[FREELIST_CNT] = {
 };
 
 /* All NVM allocations have at least this alignment */
-#define NVM_ALIGN (nvm_type_nvm_blk.align)
+#define NVM_ALIGN (shapeof(nvm_blk)->align)
 
 /**
  * This creates the root heap in the base extent. This is called before
@@ -211,23 +213,26 @@ static nvm_heap ^nvm_create_baseheap(
         uint16_t slot
         )
 {
-    /* The nvm_heap is the first byte of the managed space */
+    /* The nvm_heap is the first byte of the managed space. Initialize it as
+     * a null nvm_heap. */
     uint8_t ^next = addr; // the next byte of free NVM
+    nvm_alloc_init_1(next, shapeof(nvm_heap));
     nvm_heap ^heap = (nvm_heap ^)next;
     next += sizeof(nvm_heap);
 
     /* The next thing in the heap is the nvm_blk that describes all the
      * free space after the nvm_heap. */
+    nvm_alloc_init_1(next, shapeof(nvm_blk));
     nvm_blk ^nvb_begin = (nvm_blk ^)next;
     next += sizeof(nvm_blk);
 
     /* The last thing in a heap is the nvm_blk that marks the end of NVM */
-    uint8_t ^end = addr + bytes; // just past the last byte of NVM
-    nvm_blk ^nvb_end = (nvm_blk ^)end - 1;
+    uint8_t ^end = addr + bytes - sizeof(nvm_blk); // nvm_blk at end of heap
+    nvm_alloc_init_1(end, shapeof(nvm_blk));
+    nvm_blk ^nvb_end = (nvm_blk ^)end;
 
     /* Initialize the nvm_blk for all the free space. It is not linked to its
      * free list until non-transactional allocation is finished. */
-    ^(nvm_usid^)nvb_begin ~= nvm_usidof(nvm_blk);
     nvb_begin=>neighbors.fwrd ~= nvb_end;
     nvb_begin=>neighbors.back ~= 0;
     nvb_begin=>group.fwrd ~= 0;
@@ -237,7 +242,6 @@ static nvm_heap ^nvm_create_baseheap(
 
     /* Initialize the nvm_blk at the very end of all NVM. It indicates it is
      * the end. It is not on any linked list, and is not free or allocated. */
-    ^(nvm_usid^)nvb_end ~= nvm_usidof(nvm_blk);
     nvb_end=>neighbors.fwrd ~= 0;
     nvb_end=>neighbors.back ~= nvb_begin;
     nvb_end=>group.fwrd ~= 0;
@@ -276,9 +280,6 @@ static nvm_heap ^nvm_create_baseheap(
     /* enable non-transactional allocation */
     heap=>nvb_free ~= nvb_begin;
 
-    /* set the heap usid last so it is not a valid heap until initialized */
-    ^(nvm_usid^)heap ~= nvm_usidof(nvm_heap);
-
     return heap;
 }
 #else
@@ -291,23 +292,26 @@ static nvm_heap *nvm_create_baseheap(
         uint16_t slot
         )
 {
-    /* The nvm_heap is the first byte of the managed space */
+    /* The nvm_heap is the first byte of the managed space. Initialize it as
+     * a null nvm_heap. */
     uint8_t *next = addr; // the next byte of free NVM
+    nvm_alloc_init_1(next, shapeof(nvm_heap));
     nvm_heap *heap = (nvm_heap *)next;
     next += sizeof(nvm_heap);
 
     /* The next thing in the heap is the nvm_blk that describes all the
      * free space after the nvm_heap. */
+    nvm_alloc_init_1(next, shapeof(nvm_blk));
     nvm_blk *nvb_begin = (nvm_blk *)next;
     next += sizeof(nvm_blk);
 
     /* The last thing in a heap is the nvm_blk that marks the end of NVM */
-    uint8_t *end = addr + bytes; // just past the last byte of NVM
-    nvm_blk *nvb_end = (nvm_blk *)end - 1;
+    uint8_t *end = addr + bytes - sizeof(nvm_blk); // nvm_blk at end of heap
+    nvm_alloc_init_1(end, shapeof(nvm_blk));
+    nvm_blk *nvb_end = (nvm_blk *)end;
 
     /* Initialize the nvm_blk for all the free space. It is not linked to its
      * free list until non-transactional allocation is finished. */
-    nvb_begin->type_usid = nvm_usidof(nvm_blk);
     nvm_blk_set(&nvb_begin->neighbors.fwrd, nvb_end);
     nvm_blk_set(&nvb_begin->neighbors.back, 0);
     nvm_blk_set(&nvb_begin->group.fwrd, 0);
@@ -318,7 +322,6 @@ static nvm_heap *nvm_create_baseheap(
 
     /* Initialize the nvm_blk at the very end of all NVM. It indicates it is
      * the end. It is not on any linked list, and is not free or allocated. */
-    nvb_end->type_usid = nvm_usidof(nvm_blk);
     nvm_blk_set(&nvb_end->neighbors.fwrd, 0);
     nvm_blk_set(&nvb_end->neighbors.back, nvb_begin);
     nvm_blk_set(&nvb_end->group.fwrd, 0);
@@ -357,9 +360,6 @@ static nvm_heap *nvm_create_baseheap(
 
     /* enable non-transactional allocation */
     nvm_blk_set(&heap->nvb_free, nvb_begin);
-
-    /* set the heap usid last so it is not a valid heap until initialized */
-    heap->type_usid = nvm_usidof(nvm_heap);
 
     /* Flush the heap  out of our processor cache. */
     nvm_flush(heap, sizeof(*heap));
@@ -405,9 +405,10 @@ void ^nvm_allocNT(nvm_heap ^heap, const nvm_type *tp)
 
     /* Construct a new nvm_blk for the new free chunk. Note we just made asz
      * be a multiple of sizeof(nvm_blk). */
-    nvm_blk ^new_free = aloc + asz / sizeof(nvm_blk);
+    uint8_t ^next = (uint8_t^)aloc + asz;
+    nvm_alloc_init_1(next, shapeof(nvm_blk));
+    nvm_blk ^new_free = (nvm_blk ^)next;
     nvm_blk ^end = aloc=>neighbors.fwrd;
-    ^(nvm_usid^)new_free ~= nvm_usidof(nvm_blk);
     new_free=>neighbors.fwrd ~= end;
     end=>neighbors.back ~= new_free;
     new_free=>neighbors.back ~= aloc;
@@ -474,9 +475,10 @@ void *nvm_allocNT(nvm_heap *heap, const nvm_type *tp)
 
     /* Construct a new nvm_blk for the new free chunk. Note we just made asz
      * be a multiple of sizeof(nvm_blk). */
-    nvm_blk *new_free = aloc + asz / sizeof(nvm_blk);
+    uint8_t *next = (uint8_t*)aloc + asz;
+    nvm_alloc_init_1(next, shapeof(nvm_blk));
+    nvm_blk *new_free = (nvm_blk *)next;
     nvm_blk *end = nvm_blk_get(&aloc->neighbors.fwrd);
-    new_free->type_usid = nvm_usidof(nvm_blk);
     nvm_blk_set(&new_free->neighbors.fwrd, end);
     nvm_blk_set(&end->neighbors.back, new_free);
     nvm_flush1(end);
@@ -854,14 +856,14 @@ int nvm_resize_heap(nvm_heap ^heap, size_t psize)
         }
 
         /* get a pointer to the new end nvm_blk */
-        nvm_blk ^nvb_new = (nvm_blk^)((uint8_t^)ext + psize) - 1;
+        uint8_t ^next = (uint8_t^)ext + psize - sizeof(nvm_blk);
 
         /* Create undo for the current nvm_blk's that we will change. */
         nvm_blk_undo(nvb_last); // undo before it is unlinked from freelist
         if (psize < osize)
         {
             /* shrinking abandons old end nvm_blk so no undo needed. */
-            nvm_blk_undo(nvb_new); // undo to clear new end if we abort
+            nvm_undo(next, sizeof(nvm_blk)); // undo to clear new end if abort
         }
         else
         {
@@ -882,8 +884,9 @@ int nvm_resize_heap(nvm_heap ^heap, size_t psize)
 
         /* Create a new end nvm_blk to reflect the new size. Note that we
          * created undo above or growing and this space will be released on
-         * abort, so this stores non-transactionally */
-        ^(nvm_usid^)nvb_new ~= nvm_usidof(nvm_blk); // set USID
+         * abort, so this stores non-transactionally. */
+        nvm_alloc_init_1(next, shapeof(nvm_blk)); // init USID etc
+        nvm_blk ^nvb_new = (nvm_blk^)next;
         nvb_new=>neighbors.fwrd ~= 0; // no forward from end
         nvb_new=>neighbors.back ~= nvb_last;
         nvb_new=>group.fwrd ~= 0;
@@ -993,14 +996,14 @@ int nvm_resize_heap(nvm_heap *heap, size_t psize)
     }
 
     /* get a pointer to the new end nvm_blk */
-    nvm_blk *nvb_new = (nvm_blk*)((uint8_t*)ext + psize) - 1;
+    uint8_t *next = (uint8_t*)ext + psize - sizeof(nvm_blk);
 
     /* Create undo for the current nvm_blk's that we will change. */
     nvm_blk_undo(nvb_last); // undo before it is unlinked from freelist
     if (psize < osize)
     {
         /* shrinking abandons old end nvm_blk so no undo needed. */
-        nvm_blk_undo(nvb_new); // undo to clear new end if we abort
+        nvm_undo(next, sizeof(nvm_blk)); // undo to clear new end if abort
     }
     else
     {
@@ -1020,7 +1023,8 @@ int nvm_resize_heap(nvm_heap *heap, size_t psize)
         nvm_freelist_unlink(nvb_last);
 
     /* Create a new end nvm_blk to reflect the new size. */
-    nvb_new->type_usid = nvm_usidof(nvm_blk); // set USID
+    nvm_alloc_init_1(next, shapeof(nvm_blk)); // init USID etc
+    nvm_blk *nvb_new = (nvm_blk*)next;
     nvm_blk_set(&nvb_new->neighbors.fwrd, NULL); // no forward from end
     nvm_blk_set(&nvb_new->neighbors.back, nvb_last);
     nvm_blk_set(&nvb_new->group.fwrd, NULL);
@@ -1121,7 +1125,7 @@ int nvm_delete_heap@(
     nvm_inuse_ctx ^ctx = nvm_onabort(|nvm_inuse_callback);
 
     /* begin the transaction to mark the heap as deleting. */
-    @{
+   @ {
         
         /* Lock the extent to ensure there are no allocations currently in
          * progress. */
@@ -1470,7 +1474,7 @@ void ^nvm_alloc@(
 
     /* Begin a nested transaction to do the allocation. This allows the heap
      * and freelist locks to be dropped before returning. */
-    @{ // nvm_txbegin(0);    
+    @{
 
         /* Get the mutex for the heap so we can examine and modify it */
         nvm_xlock(%heap=>heap_mutex);
@@ -1537,7 +1541,7 @@ void ^nvm_alloc@(
         /* Return successful allocation. The allocated space immediately follows
          * the nvm_blk describing it. */
         return ret;
-    }      
+    }
 
 
     /* If we fail to allocate, remove the unnecessary on abort undo. This keeps
@@ -2605,7 +2609,7 @@ void nvm_alloc_init(void ^addr, const nvm_type *tp, size_t size)
             /* This is an array of persistent structs. Call nvm_alloc_init1
              * to initialize each struct. An embedded struct cannot itself be
              * extensible. */
-            nvm_type *xtp = fld->desc.pstruct;
+            const nvm_type *xtp = fld->desc.pstruct;
             uint8_t ^ptr = (uint8_t^)addr + tp->size;
             int count = (size - tp->size) / xtp->size;
             while (count--)
@@ -2727,7 +2731,7 @@ void nvm_alloc_init(void *addr, const nvm_type *tp, size_t size)
             /* This is an array of persistent structs. Call nvm_alloc_init1
              * to initialize each struct. An embedded struct cannot itself be
              * extensible. */
-            nvm_type *xtp = fld->desc.pstruct;
+            const nvm_type *xtp = fld->desc.pstruct;
             uint8_t *ptr = (uint8_t*)addr + tp->size;
             int count = (size - tp->size) / xtp->size;
             while (count--)
@@ -2968,7 +2972,7 @@ static void nvm_freelist_unlink@(nvm_blk ^nvb)
     /* Unlink from the prevoius nvm_blk */
     if (bk != 0)
     {
-        /* not the tail of its free list  so link fwrd pointer of the
+        /* not the head of its free list  so link fwrd pointer of the
          * previous block around this block. */
         bk=>group.fwrd @= fw;
     }
@@ -3020,7 +3024,7 @@ static void nvm_freelist_unlink(nvm_blk *nvb)
     /* Unlink from the prevoius nvm_blk */
     if (bk != NULL)
     {
-        /* not the tail of its free list  so link fwrd pointer of the
+        /* not the head of its free list  so link fwrd pointer of the
          * previous block around this block. */
         NVM_UNDO(bk->group.fwrd);
         nvm_blk_set(&bk->group.fwrd, fw);
@@ -3145,35 +3149,34 @@ static nvm_blk ^nvm_alloc_blk@(nvm_heap ^heap, size_t request, uint32_t align)
         }
     }
 
-    /* Determine how much spare space is in this NVblk. Round down for nvm_blk
-     * alignment. Note that spare includes space that would be consumed by a
-     * new nvm_blk if constructed. */
-    size_t spare = (space - request) & ~(NVM_ALIGN - 1);
-
     /* Create undo for the nvm_blk we are going to modify. This allows 
      * non-transactional stores for updating the nvm_blk. */
     nvm_blk_undo(nvb);
-
-    /* if the spare space is too small then just waste it to avoid
-     * lots of small useless free blocks. */
-    nvm_blk ^new_nvb = 0;
-    if (spare >= heap=>free_size[0])
-    {
-        /* make a new NVblk to keep the spare space */
-        new_nvb = nvb=>neighbors.fwrd - (spare / sizeof(nvm_blk));
-    }
 
     /* Remove the nmv_blk from the free list. Does not change *nvb links.
      * First follow the forward group pointer to link it around the nvm_blk
      * we are removing. Then follow the back pointer to link around. */
     nvm_freelist_unlink(nvb);
 
-    /* If the spare space is big enough to make into a new nvm_blk then
-     * create the nvm_blk and add it to the correct freelist. */
-    if (new_nvb)
+    /* Determine how much spare space is in this NVblk. Round down for nvm_blk
+     * alignment. Note that spare includes space that would be consumed by a
+     * new nvm_blk if constructed. */
+    size_t spare = (space - request) & ~(NVM_ALIGN - 1);
+
+    /* If the spare space is big enough, create a new free block out of the
+     * spare space. Otherwise just waste it to avoid lots of small useless
+     * free blocks. */
+    if (spare >= heap=>free_size[0])
     {
-        nvm_blk_undo(new_nvb); // Should be zero, but create undo anyway
-        ^(nvm_usid^)new_nvb ~= nvm_usidof(nvm_blk);
+        /* There is enough space to create a new nvm_blk. Initialize it to
+         * look like it was just allocated with a USID stored in it. */
+        uint8_t ^f = (uint8_t^)nvb=>neighbors.fwrd - spare;
+        nvm_undo(f, sizeof(nvm_blk)); // Should be zero, but create undo anyway
+        nvm_alloc_init_1(f, shapeof(nvm_blk));
+
+       /* Now that it is properly initialized we can treat it like an
+        * nvm_blk.*/
+        nvm_blk ^new_nvb =(nvm_blk ^)f;
 
         /* link to neighboring nvm_blk's */
         nvm_blk ^next = nvb=>neighbors.fwrd;
@@ -3266,35 +3269,34 @@ static nvm_blk *nvm_alloc_blk(nvm_heap *heap, size_t request, uint32_t align)
         }
     }
 
-    /* Determine how much spare space is in this NVblk. Round down for nvm_blk
-     * alignment. Note that spare includes space that would be consumed by a
-     * new nvm_blk if constructed. */
-    size_t spare = (space - request) & ~(NVM_ALIGN - 1);
-
     /* Create undo for the nvm_blk we are going to modify. This allows 
      * non-transactional stores for updating the nvm_blk. */
     nvm_blk_undo(nvb);
-
-    /* if the spare space is too small then just waste it to avoid
-     * lots of small useless free blocks. */
-    nvm_blk *new_nvb = 0;
-    if (spare >= heap->free_size[0])
-    {
-        /* make a new NVblk to keep the spare space */
-        new_nvb = nvm_blk_get(&nvb->neighbors.fwrd) - (spare / sizeof(nvm_blk));
-    }
 
     /* Remove the nmv_blk from the free list. Does not change *nvb links.
      * First follow the forward group pointer to link it around the nvm_blk
      * we are removing. Then follow the back pointer to link around. */
     nvm_freelist_unlink(nvb);
 
-    /* If the spare space is big enough to make into a new nvm_blk then
-     * create the nvm_blk and add it to the correct freelist. */
-    if (new_nvb)
+    /* Determine how much spare space is in this NVblk. Round down for nvm_blk
+     * alignment. Note that spare includes space that would be consumed by a
+     * new nvm_blk if constructed. */
+    size_t spare = (space - request) & ~(NVM_ALIGN - 1);
+
+    /* If the spare space is big enough, create a new free block out of the
+     * spare space. Otherwise just waste it to avoid lots of small useless
+     * free blocks. */
+    if (spare >= heap->free_size[0])
     {
-        nvm_blk_undo(new_nvb); // Should be zero, but create undo anyway
-        new_nvb->type_usid = nvm_usidof(nvm_blk);
+        /* There is enough space to create a new nvm_blk. Initialize it to
+         * look like it was just allocated with a USID stored in it. */
+        uint8_t *f = (uint8_t*)nvm_blk_get(&nvb->neighbors.fwrd) - spare;
+        nvm_undo(f, sizeof(nvm_blk)); // Should be zero, but create undo anyway
+        nvm_alloc_init_1(f, shapeof(nvm_blk));
+
+       /* Now that it is properly initialized we can treat it like an
+        * nvm_blk.*/
+        nvm_blk *new_nvb =(nvm_blk *)f;
 
         /* link to neighboring nvm_blk's */
         nvm_blk *next = nvm_blk_get(&nvb->neighbors.fwrd);

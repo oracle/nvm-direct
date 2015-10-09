@@ -69,12 +69,13 @@ extern "C"
 #endif
 
     /* forward declarations */
-    extern const nvm_type nvm_type_nvm_trans_table;
-    extern const nvm_type nvm_type_nvm_heap;
-    extern const nvm_type nvm_type_nvm_mutex_array;
 #ifdef NVM_EXT
     typedef persistent struct nvm_trans_table nvm_trans_table;
 #else
+    extern const nvm_type nvm_type_nvm_trans_table; //
+    extern const nvm_type nvm_type_nvm_heap; //
+    extern const nvm_type nvm_type_nvm_mutex; //
+    extern const nvm_type nvm_type_nvm_mutex_array; //
     typedef struct nvm_trans_table nvm_trans_table;
     NVM_SRP(nvm_trans_table)
 #endif //NVM_EXT
@@ -106,7 +107,6 @@ extern "C"
         size_t size;
     };
     typedef persistent struct nvm_extent nvm_extent;
-    extern const nvm_type nvm_type_nvm_extent;
 #else
     struct nvm_extent
     {
@@ -167,6 +167,18 @@ extern "C"
         char name[64];
 
         /**
+         * This is the pointer to the root object. The application knows
+         * what type this really is. The root object leads to all the
+         * application data. A region file cannot be attached unless the
+         * root object has been set to indicate initialization is complete.
+         */
+#ifdef NVM_EXT
+        void ^rootObject;
+#else
+        void_srp rootObject;
+#endif //NVM_EXT
+
+        /**
          * Every time an application attaches to a region a random id is 
          * chosen to identify this attach. The ID is written into the
          * nvm_region and the region data in application global memory. It is
@@ -183,18 +195,19 @@ extern "C"
         
     };
     typedef struct nvm_region_header nvm_region_header;
-    extern const nvm_type nvm_type_nvm_region_header; //
+
     /**
      * This is the portion of the region that is accessed with read/write
      * system calls before it is mapped into a process. It only appears in
+     * volatile memory. Note that reading/writing this from/to a region file
+     * does not convert the rootObject pointer between absolute and
+     * self-relative as one would expect when copying from/to NVM to/from
      * volatile memory.
      */
     struct nvm_region_init
     {
         /**
-         * The USID of nvm_region. When creation is only partial, only d2
-         * will be correct. The rest will be zero. The nvm_region_header will
-         * be valid in this case.
+         * The USID of nvm_region.
          */
         nvm_usid usid;
 
@@ -212,7 +225,7 @@ extern "C"
      */
 #ifdef NVM_EXT
     persistent struct    
-    USID("eeae 207b 7891 7578 d7ae b6aa 1294 c9a9")
+    USID("eeae 207b 7891 7578 d7ae b6aa 1294 c9a6")
     tag("An NVM library managed region begins with an nvm_region")
     version(0)
     size(1024)
@@ -305,13 +318,6 @@ extern "C"
         nvm_heap ^rootHeap;
 
         /**
-         * This is the pointer to the root object. The application knows
-         * what type this really is. The root object leads to all the 
-         * application data.
-         */
-        void ^rootObject;
-
-        /**
          * This mutex is held to protect the extent list, root heap list, and
          * transaction table list.
          */
@@ -335,7 +341,7 @@ extern "C"
         /*
          * Leave some padding for growth. Assumes nvm_mutex is 8 bytes
          */
-        uint8_t _padding_to_1024[1024 - 188]; //#
+        uint8_t _padding_to_1024[1024 - 188];
     };
 #else
     struct nvm_region
@@ -427,13 +433,6 @@ extern "C"
         nvm_heap_srp rootHeap; //# nvm_heap *
 
         /**
-         * This is the pointer to the root object. The application knows
-         * what type this really is. The root object leads to all the 
-         * application data.
-         */
-        void_srp rootObject;    
-
-        /**
          * This mutex is held to protect the extent list, and
          * transaction table list.
          */
@@ -456,10 +455,10 @@ extern "C"
         /*
          * Leave some padding for growth. Assumes nvm_mutex is 8 bytes
          */
-        uint8_t _padding_to_1024[1024 - 188]; //#
+        uint8_t _padding_to_1024[1024 - 188];
     };
+    extern const nvm_type nvm_type_nvm_region;
 #endif //NVM_EXT
-    extern const nvm_type nvm_type_nvm_region; //#
     /**
      * This is the per region data kept in volatile memory. There is an array
      * of pointers to these that is maintained in the application data. A

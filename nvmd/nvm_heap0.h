@@ -98,8 +98,8 @@ extern "C"
         nvm_blk_srp back; // ^nvm_blk    
     };
     typedef struct nvm_link nvm_link;
+    extern const nvm_type nvm_type_nvm_link;
 #endif //NVM_EXT
-    extern const nvm_type nvm_type_nvm_link; //#
 
     /**
      * This is a list of doubly linked  nvm_blk structs. It is embedded in

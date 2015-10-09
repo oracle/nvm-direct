@@ -105,7 +105,7 @@ const size_t logspace = 2*1024*1024;
  * killing the child process. This should be tuned so that most children
  * are killed but a significant number complete without being killed. */
 //const int maxsleep = 14;
-const int maxsleep = 3;
+const int maxsleep = 4;
 
 /* loops is the number of times each thread goes through the deallocate
  * then allocate loop before doing a normal exit. */
@@ -164,7 +164,7 @@ typedef persistent struct branch_v2 branch_v2;
 int upgrade_br_v1@(branch_v1 ^b1)
 {
     nvm_verify(b1, shapeof(branch_v1));
-    if (b1=>version1 != 1)
+    if (b1=>version1 && b1=>version1 != 1)
         return 0; // fail due to corruption
     branch_v2 ^b2 = (branch_v2^)b1;
     nvm_verify(b2, shapeof(branch_v2));
@@ -178,7 +178,7 @@ int upgrade_br_v1@(branch_v1 ^b1)
 int upgrade_br_v2@(branch_v2 ^b2)
 {
     nvm_verify(b2, shapeof(branch_v2));
-    if (b2=>version2 != 2)
+    if (b2=>version2 && b2=>version2 != 2)
         return 0; // fail due to corruption
     branch ^b = (branch^)b2;
     nvm_verify(b, shapeof(branch));
@@ -219,7 +219,7 @@ typedef struct branch_v2 branch_v2;
 int upgrade_br_v1(branch_v1 *b1)
 {
     nvm_verify(b1, shapeof(branch_v1));
-    if (b1->version1 != 1)
+    if (b1->version1 && b1->version1 != 1)
         return 0; // fail due to corruption
     branch_v2 *b2 = (branch_v2*)b1;
     nvm_verify(b2, shapeof(branch_v2));
@@ -233,7 +233,7 @@ int upgrade_br_v1(branch_v1 *b1)
 int upgrade_br_v2(branch_v2 *b2)
 {
     nvm_verify(b2, shapeof(branch_v2));
-    if (b2->version2 != 2)
+    if (b2->version2 && b2->version2 != 2)
         return 0; // fail due to corruption
     branch *b = (branch*)b2;
     nvm_verify(b, shapeof(branch));
@@ -319,7 +319,7 @@ struct root
     nvm_usid type_usid;
     nvm_mutex mtx[ptrs]; // a bunch of mutexes
     nvm_heap_srp heap; // heap in heap extent
-    branchArray_srp ptr; // branch ^ptr
+    branchArray_srp ptr; // struct branch ^ptr
 };
 typedef struct root root;
 #endif //NVM_EXT
@@ -548,7 +548,6 @@ void attach_log(struct counts *cnts)
  * because that is what we want to test.
  */
 #ifdef NVM_EXT
-//TODO+ remove the # when the compiler allows
 void write_log(struct counts *cnts, int slot, uint32_t oldsz, uint32_t newsz)
 { @ cnts->logstat.desc {
     /* get the log struct */
@@ -677,7 +676,8 @@ void alloc1(struct counts *cnts)
         {
             newsz = size * sizeof(uint64_t) + sizeof(branch);
             leaf=>data[0] ~= newsz;
-            leaf=>version ~= v;
+            if (v == 3)
+                leaf=>version ~= 3;
             cnts->alloc += newsz;
             cnts->alloc_cnt++;
             ptr[slot] @= leaf;
@@ -759,7 +759,8 @@ void alloc1(struct counts *cnts)
     if (leaf)
     {
         newsz = size * sizeof(uint64_t) + sizeof(branch);
-        NVM_NTSTORE(leaf->version, v);
+        if (v == 3)
+            NVM_NTSTORE(leaf->version, v);
         NVM_NTSTORE(leaf->data[0], newsz);
         cnts->alloc += newsz;
         cnts->alloc_cnt++;
@@ -838,11 +839,9 @@ end_thread:
 int
 main(int argc, char** argv)
 {
-//    size_t md = maxdata;
     const char *fname = "/tmp/nvmd";
     if (argc == 2)
         fname = argv[1];
-//    srandom(42);
 
     /* Fork children to do the real work. Kill them after a few seconds*/
     int x = FORKS; //number of children to spawn

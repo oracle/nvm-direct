@@ -260,37 +260,37 @@ extern "C"
              * gives the size of the number in bits. This is also used for 
              * padding
              */
-            uint64_t bits;
+            const uint64_t bits;
 
             /**
              * The ftype is a USID and this gives the purpose of the USID.
              */
-            nvm_usid_purpose purp;
+            const nvm_usid_purpose purp;
 
             /**
              * The ftype is a pointer to a persistent struct. This points to 
              * the definition of the target struct.
              */
-            nvm_type * const structptr;
+            const nvm_type * const structptr;
 
             /**
              * The ftype is a pointer to something other than a struct. This
              * points to another field definition describing the target of the
              * pointer, unless it is a void pointer, then this is zero.
              */
-            nvm_field * const ptr;
+            const nvm_field * const ptr;
 
             /**
              * The ftype is embedded persistent struct. This points to the 
              * definition of the embedded struct.
              */
-            nvm_type * const pstruct;
+            const nvm_type * const pstruct;
 
             /**
              * The ftype is embedded persistent union. This points to the 
              * definition of the embedded union.
              */
-            nvm_union * const punion;
+            const nvm_union * const punion;
         } desc;
 
         /**
@@ -383,7 +383,8 @@ extern "C"
 
         /**
          * This is the number of nvm_field entries in the fields array that
-         * follows this struct. Note that the array is also null terminated.
+         * follows this struct. Note that the array is also null terminated
+         * after the counted fields.
          */
         const size_t field_cnt;
 
@@ -653,8 +654,7 @@ extern "C"
      * Return the USID of a persistent struct type. This might be zero if there
      * is no USID for the type. For example nvm_mutex does not have a USID.
      */
-//#define nvm_usidof(type) (shapeof(type)->usid)
-#define nvm_usidof(type) (nvm_type_##type.usid)
+#define nvm_usidof(type) ((shapeof(type))->usid)
 
 #ifdef	__cplusplus
 }

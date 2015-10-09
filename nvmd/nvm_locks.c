@@ -387,7 +387,7 @@ nvm_mutex_array *nvm_create_mutex_array(
 #ifdef NVM_EXT
 nvm_mutex ^nvm_pick_mutex@(
     nvm_mutex_array ^array,
-    void ^ptr
+    const void ^ptr
     )
 {
     /* get the region for the array and ptr from the current transaction */
@@ -408,15 +408,15 @@ nvm_mutex ^nvm_pick_mutex@(
      * address. */
     size_t offset = (uint8_t^)ptr - (uint8_t^)rg;
 
-    /* divide offset by a prime that is less than the alignment of heap
-     * allocation to get an even distribution across the mutexes. Use that
+    /* divide offset by a prime that is less than the alignment of most
+     * pointers to get an even distribution across the mutexes. Use that
      * to select the mutex. */
-    return (nvm_mutex ^)%array=>mutexes[(offset/61) % array=>count];
+    return (nvm_mutex ^)%array=>mutexes[(offset/7) % array=>count];
 }
 #else
 nvm_mutex *nvm_pick_mutex(
     nvm_mutex_array *array,
-    void *ptr
+    const void *ptr
     )
 {
     /* get the region for the array and ptr from the current transaction */
@@ -437,12 +437,13 @@ nvm_mutex *nvm_pick_mutex(
      * address. */
     size_t offset = (uint8_t*)ptr - (uint8_t*)rg;
 
-    /* divide offset by a prime that is less than the alignment of heap
-     * allocation to get an even distribution across the mutexes. Use that
+    /* divide offset by a prime that is less than the alignment of most
+     * pointers to get an even distribution across the mutexes. Use that
      * to select the mutex. */
-    return (nvm_mutex *)&array->mutexes[(offset/61) % array->count];
+    return (nvm_mutex *)&array->mutexes[(offset/7) % array->count];
 }
 #endif //NVM_EXT
+
 /**
  * Find the wait table bucket for an NVM mutex and acquire its mutex.
  * @param tx

@@ -367,6 +367,11 @@ const nvm_extern *nvm_usid_find(
         nvm_usid usid // USID to lookup in the usid map
         )
 {
+    /* Zero is a bad usid, but there are zero entries in the map, so
+     * bail out now. */
+    if (usid.d1 == 0 || usid.d2 == 0)
+        return NULL;
+
     /* Get the current map. */
     nvm_usid_map *map = nvm_usid_get_map();
 

@@ -48,25 +48,168 @@ SOFTWARE.
      NVM library. Some day this file will disappear.
 
  */
-#include <sys/types.h>
+//#include <sys/types.h>
 #include "nvm_usid.h"
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[2];
+} nvm_type1;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[3];
+} nvm_type2;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[4];
+} nvm_type3;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[5];
+} nvm_type4;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[6];
+} nvm_type5;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[7];
+} nvm_type6;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[8];
+} nvm_type7;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[9];
+} nvm_type8;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[17];
+} nvm_type16;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[18];
+} nvm_type17;
+typedef struct {
+    const nvm_usid usid;
+    const char *const name;
+    const char *const tag;
+    const size_t size;
+    const size_t xsize;
+    const uint32_t version;
+    const uint32_t align;
+    void (*const upgrade)();
+    const nvm_type *const uptype;
+    const size_t field_cnt;
+    const nvm_field field[23];
+} nvm_type22;
 
 /* an extern definition for each nvm_type */
-extern const nvm_type nvm_type_nvm_extent;
-extern const nvm_type nvm_type_nvm_region;
-extern const nvm_type nvm_type_nvm_trans_table;
-extern const nvm_type nvm_type_nvm_heap;
-extern const nvm_type nvm_type_nvm_amutex;
-extern const nvm_type nvm_type_nvm_mutex_array;
-extern const nvm_type nvm_type_nvm_link;
-extern const nvm_type nvm_type_nvm_blk;
+extern const nvm_type3 nvm_type_nvm_extent;
+extern const nvm_type17 nvm_type_nvm_region;
+extern const nvm_type5 nvm_type_nvm_trans_table;
+extern const nvm_type16 nvm_type_nvm_heap;
+extern const nvm_type5 nvm_type_nvm_amutex;
+extern const nvm_type4 nvm_type_nvm_mutex_array;
+extern const nvm_type2 nvm_type_nvm_link;
+extern const nvm_type5 nvm_type_nvm_blk;
 //extern const nvm_type nvm_type_;
 
 /*
  *  type definition of nvm_extent 
  */
-const nvm_type nvm_type_nvm_extent = {
-    { 0x93dd163c10b10691, 0xfdf780feccc95b0aLL}, // type_usid
+const nvm_type3 nvm_type_nvm_extent = {
+    { 0x93dd163c10b10691LL, 0xfdf780feccc95b0aLL}, // type_usid
     "nvm_extent", // name
     "One extent of a region file", // tag
     32, // size
@@ -88,7 +231,7 @@ const nvm_type nvm_type_nvm_extent = {
  * type definition of nvm_region_header. This is needed because it is
  * a non-persistent struct that appears in a persistent struct.
  */
-const nvm_type nvm_type_nvm_region_header = {
+const nvm_type3 nvm_type_nvm_region_header = {
     {0, 0}, // type_usid
     "nvm_region_header", // name
     0, //tag
@@ -111,8 +254,8 @@ const nvm_type nvm_type_nvm_region_header = {
 /*
  *  type definition of nvm_region 
  */
-const nvm_type nvm_type_nvm_region = {
-    { 0xeeae207b78917578, 0xd7aeb6aa1294c9a9LL}, // type_usid
+const nvm_type17 nvm_type_nvm_region = {
+    { 0xeeae207b78917578LL, 0xd7aeb6aa1294c9a6LL}, // type_usid
     "nvm_region", // name
     "An NVM library managed region begins with an nvm_region", // tag
     1024, // size
@@ -149,7 +292,7 @@ const nvm_type nvm_type_nvm_region = {
 /*
  * Type definition of nvm_link
  */
-const nvm_type nvm_type_nvm_link = {
+const nvm_type2 nvm_type_nvm_link = {
     {0, 0}, // type_usid
     "nvm_link", // name
     "Link in doubly linked list of nvm_blk", // tag
@@ -170,7 +313,7 @@ const nvm_type nvm_type_nvm_link = {
 /*
  * Type definition of nvm_list
  */
-const nvm_type nvm_type_nvm_list = {
+const nvm_type2 nvm_type_nvm_list = {
     {0, 0}, // type_usid
     "nvm_list", // name
     "Doubly linked list of nvm_blk", // tag
@@ -191,8 +334,8 @@ const nvm_type nvm_type_nvm_list = {
 /*
  * Type definition of nvm_blk
  */
-const nvm_type nvm_type_nvm_blk = {
-    {0x4d8ab944afee7ddd, 0x06c7ac6648d7e7b3}, // type_usid
+const nvm_type5 nvm_type_nvm_blk = {
+    {0x4d8ab944afee7dddLL, 0x06c7ac6648d7e7b3LL}, // type_usid
     "nvm_blk", // name
     "NVM heap control block describing one chunk of NVM", // tag
     64, //size
@@ -201,12 +344,13 @@ const nvm_type nvm_type_nvm_blk = {
     64, // align
     0, // upgrade
     0, // uptype
-    4, // field_cnt
+    5, // field_cnt
     { // fields[] 
         {nvm_field_usid, 0, 1, (void*)nvm_usid_self, "type_usid"},
         {nvm_field_struct, 0, 1, &nvm_type_nvm_link, "neighbors"},
         {nvm_field_struct, 0, 1, &nvm_type_nvm_link, "group"},
         {nvm_field_pointer, 0, 1, NULL, "ptr"},
+        {nvm_field_unsigned, 0, 1, (void*)64, "allocated"},
         {0, 0, 0, 0, 0} // end
     }
 };
@@ -215,8 +359,8 @@ const nvm_type nvm_type_nvm_blk = {
 /*
  * Type definition of nvm_heap
  */
-const nvm_type nvm_type_nvm_heap = {
-    {0xf72849918dcf67f2, 0xc6d48417fe4abdf6}, // type_usid
+const nvm_type16 nvm_type_nvm_heap = {
+    {0xf72849918dcf67f2LL, 0xc6d48417fe4abdf6LL}, // type_usid
     "nvm_heap", // name
     "Metadata describing one heap or subheap", // tag
     1024, //size
@@ -237,7 +381,7 @@ const nvm_type nvm_type_nvm_heap = {
         {nvm_field_unsigned, 0, 1, (void*)64, "size"},
         {nvm_field_unsigned, 0, 1, (void*)64, "consumed"},
         {nvm_field_unsigned, 0, 1, (void*)64, "heap_mutex"},
-        {nvm_field_struct, 1, 0, &nvm_type_nvm_list, "list"},
+        {nvm_field_struct, 0, 1, &nvm_type_nvm_list, "list"},
         {nvm_field_unsigned, 0, 25, (void*)64, "free_size"},
         {nvm_field_struct, 0, 25, &nvm_type_nvm_list, "free"},
         {nvm_field_struct_ptr, 0, 1, &nvm_type_nvm_blk, "nvb_free"},
@@ -250,8 +394,8 @@ const nvm_type nvm_type_nvm_heap = {
 /*
  * Type definition of nvm_undo_blk
  */
-const nvm_type nvm_type_nvm_undo_blk = {
-    {0xfb7ad37ce443f03b, 0x0e559be8bd5ea95e}, // type_usid
+const nvm_type7 nvm_type_nvm_undo_blk = {
+    {0xfb7ad37ce443f03bLL, 0x0e559be8bd5ea95eLL}, // type_usid
     "nvm_undo_blk", // name
     "One block of undo for a transaction", // tag
     4096, //size
@@ -276,7 +420,7 @@ const nvm_type nvm_type_nvm_undo_blk = {
 /*
  * Type definition of nvm_restore
  */
-const nvm_type nvm_type_nvm_restore = {
+const nvm_type2 nvm_type_nvm_restore = {
     {0, 0}, // type_usid
     "nvm_restore", // name
     "Data for undo operation nvm_op_restore", // tag
@@ -297,7 +441,7 @@ const nvm_type nvm_type_nvm_restore = {
 /*
  * Type definition of nvm_lkrec
  */
-const nvm_type nvm_type_nvm_lock = {
+const nvm_type7 nvm_type_nvm_lock = {
     {0, 0}, // type_usid
     "nvm_lkrec", // name
     "Data for undo operation nvm_op_xlock or nvm_op_slock", // tag
@@ -323,7 +467,7 @@ const nvm_type nvm_type_nvm_lock = {
 /*
  * Type definition of nvm_savepnt
  */
-const nvm_type nvm_type_nvm_savepoint = {
+const nvm_type4 nvm_type_nvm_savepoint = {
     {0, 0}, // type_usid
     "nvm_savepnt", // name
     "Data for undo operation nvm_op_savepoint", // tag
@@ -346,7 +490,7 @@ const nvm_type nvm_type_nvm_savepoint = {
 /*
  * Type definition of nvm_nested
  */
-const nvm_type nvm_type_nvm_nested = {
+const nvm_type4 nvm_type_nvm_nested = {
     {0, 0}, // type_usid
     "nvm_nested", // name
     "Data for undo operation nvm_op_nested", // tag
@@ -368,7 +512,7 @@ const nvm_type nvm_type_nvm_nested = {
 /*
  * Type definition of nvm_on_commit
  */
-const nvm_type nvm_type_nvm_on_abort = {
+const nvm_type2 nvm_type_nvm_on_abort = {
     {0, 0}, // type_usid
     "nvm_on_abort", // name
     "Data for undo operation nvm_op_on_abort", // tag
@@ -389,7 +533,7 @@ const nvm_type nvm_type_nvm_on_abort = {
 /*
  * Type definition of nvm_on_commit
  */
-const nvm_type nvm_type_nvm_on_commit = {
+const nvm_type6 nvm_type_nvm_on_commit = {
     {0, 0}, // type_usid
     "nvm_on_commit", // name
     "Data for undo operation nvm_op_on_commit", // tag
@@ -414,7 +558,7 @@ const nvm_type nvm_type_nvm_on_commit = {
 /*
  * Type definition of nvm_transaction
  */
-const nvm_type nvm_type_nvm_transaction = {
+const nvm_type22 nvm_type_nvm_transaction = {
     {0x37ca2aace2f64639, 0x18e6f0152d8c2a6e}, // type_usid
     "nvm_transaction", // name
     "Persistent data describing a transaction", // tag
@@ -455,7 +599,7 @@ const nvm_type nvm_type_nvm_transaction = {
 /*
  * Type definition of nvm_trans_table
  */
-const nvm_type nvm_type_nvm_trans_table = {
+const nvm_type5 nvm_type_nvm_trans_table = {
     {0x1c2be7506f5ff07a, 0x30835fc7b2be8c09}, // type_usid
     "nvm_trans_table", // name
     "A group of transaction slots and undo blocks", // tag
@@ -479,7 +623,7 @@ const nvm_type nvm_type_nvm_trans_table = {
 /*
  * Type definition of nvm_amutex
  */
-const nvm_type nvm_type_nvm_amutex = {
+const nvm_type5 nvm_type_nvm_amutex = {
     {0, 0}, // type_usid
     "nvm_amutex", // name
     "A mutex in NVM which is lockable by an NVM transaction", // tag
@@ -504,7 +648,7 @@ const nvm_type nvm_type_nvm_amutex = {
 /*
  * Type definition of nvm_mutex_array
  */
-const nvm_type nvm_type_nvm_mutex_array = {
+const nvm_type4 nvm_type_nvm_mutex_array = {
     {0x334fc14d262da28c, 0xe5e04e9e37509c23}, // type_usid
     "nvm_mutex_array", // name
     "Array of mutexes to lock objects by their address", // tag
@@ -528,7 +672,7 @@ const nvm_type nvm_type_nvm_mutex_array = {
 /*
  * Type definition of nvm_free_ctx
  */
-const nvm_type nvm_type_nvm_free_ctx = {
+const nvm_type1 nvm_type_nvm_free_ctx = {
     {0, 0}, // type_usid
     "nvm_free_ctx", // name
     "Context for onabort/oncommit operation to free NVM", // tag
@@ -548,7 +692,7 @@ const nvm_type nvm_type_nvm_free_ctx = {
 /*
  * Type definition of nvm_remx_ctx
  */
-const nvm_type nvm_type_nvm_remx_ctx = {
+const nvm_type3 nvm_type_nvm_remx_ctx = {
     {0, 0}, // type_usid
     "nvm_remx_ctx", // name
     "Context for onabort/oncommit operation to remove NVM from an extent", // tag
@@ -570,7 +714,7 @@ const nvm_type nvm_type_nvm_remx_ctx = {
 /*
  * Type definition of nvm_inuse_ctx
  */
-const nvm_type nvm_type_nvm_inuse_ctx = {
+const nvm_type1 nvm_type_nvm_inuse_ctx = {
     {0, 0}, // type_usid
     "nvm_inuse_ctx", // name
     "Context for onabort/oncommit operation to clear heap inuse flag", // tag
@@ -590,7 +734,7 @@ const nvm_type nvm_type_nvm_inuse_ctx = {
 /*
  * Type definition of nvm_txconfig_ctx
  */
-const nvm_type nvm_type_nvm_txconfig_ctx = {
+const nvm_type3 nvm_type_nvm_txconfig_ctx = {
     {0, 0}, // type_usid
     "nvm_txconfig_ctx", // name
     "Context for onunlock operation to reconfigure transaction data", // tag
@@ -615,13 +759,13 @@ const nvm_type nvm_type_nvm_txconfig_ctx = {
  * array.
  */
 static const nvm_type *types[] = {
-    &nvm_type_nvm_extent,
-    &nvm_type_nvm_region,
-    &nvm_type_nvm_blk,
-    &nvm_type_nvm_heap,
-    &nvm_type_nvm_trans_table,
-    &nvm_type_nvm_transaction,
-    &nvm_type_nvm_undo_blk,
+    (const nvm_type*)&nvm_type_nvm_extent,
+    (const nvm_type*)&nvm_type_nvm_region,
+    (const nvm_type*)&nvm_type_nvm_blk,
+    (const nvm_type*)&nvm_type_nvm_heap,
+    (const nvm_type*)&nvm_type_nvm_trans_table,
+    (const nvm_type*)&nvm_type_nvm_transaction,
+    (const nvm_type*)&nvm_type_nvm_undo_blk,
 //    &,
     NULL // NULL terminator
 };
@@ -634,7 +778,7 @@ extern int nvm_free_callback;
 const nvm_extern nvm_extern_nvm_free_callback = {
     {0x3191c3be57cf5408, 0x3492134cdf536df7},
     &nvm_free_callback,
-    &nvm_type_nvm_free_ctx,
+    (const nvm_type*)&nvm_type_nvm_free_ctx,
     "nvm_free_callback"
 };
 //void nvm_freex_callback(void *ctx);
@@ -642,7 +786,7 @@ extern int nvm_freex_callback;
 const nvm_extern nvm_extern_nvm_freex_callback = {
     {0x009e1ed41f0d1ea0, 0x9f9e0dbcabf56ae0},
     &nvm_freex_callback,
-    &nvm_type_nvm_remx_ctx,
+    (const nvm_type*)&nvm_type_nvm_remx_ctx,
     "nvm_freex_callback"
 };
 //void nvm_remx_callback(void *ctx);
@@ -650,7 +794,7 @@ extern int nvm_remx_callback;
 const nvm_extern nvm_extern_nvm_remx_callback = {
     {0x2732fd0f0a1311e2, 0xf304ce0c9fd533f8},
     &nvm_remx_callback,
-    &nvm_type_nvm_remx_ctx,
+    (const nvm_type*)&nvm_type_nvm_remx_ctx,
     "nvm_remx_callback"
 };
 //void nvm_inuse_callback(void *ctx);
@@ -658,7 +802,7 @@ extern int nvm_inuse_callback;
 const nvm_extern nvm_extern_nvm_inuse_callback = {
     {0x5d8f80344a7e08dd, 0x1f048aa698a5f4c1},
     &nvm_inuse_callback,
-    &nvm_type_nvm_inuse_ctx,
+    (const nvm_type*)&nvm_type_nvm_inuse_ctx,
     "nvm_inuse_callback"
 };
 //void nvm_txconfig_callback(void *ctx);
@@ -666,7 +810,7 @@ extern int nvm_txconfig_callback;
 const nvm_extern nvm_extern_nvm_txconfig_callback = {
     {0x7ac98b1f63f35abb, 0x5a50281f904707e2},
     &nvm_txconfig_callback,
-    &nvm_type_nvm_txconfig_ctx,
+    (const nvm_type*)&nvm_type_nvm_txconfig_ctx,
     "nvm_txconfig_callback"
 };
 

@@ -150,7 +150,6 @@ void nvms_thread_fini()
     while (cur)
     {
         nxt = *cur;
-//        printf("%p f free++\n", cur);
         free(cur);
         cur = nxt;
         pthread_setspecific(nvms_alloc_key, cur);
@@ -236,7 +235,6 @@ void nvms_thread_free(
     else
         pthread_setspecific(nvms_alloc_key, *cur);
 
-//    printf("%p t free++\n", cur);
     free(cur);
 }
 
@@ -271,7 +269,6 @@ void nvms_thread_free(
 void *nvms_app_alloc(size_t size)
 {
     void *mem = malloc(size);
-//    printf("%p a aloc++\n", mem);
     if (mem == 0)
         nvms_assert_fail("Failure in malloc");
     memset(mem, 0, size);

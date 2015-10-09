@@ -251,7 +251,7 @@ void nvm_thread_fini(void)
  */
 #ifdef NVM_EXT
 void nvm_flush(
-        void ^ptr, 
+        const void ^ptr,
         size_t bytes
         )
 {
@@ -313,7 +313,7 @@ void nvm_flush(
 }
 #else
 void nvm_flush(
-        void *ptr,    
+        const void *ptr,
         size_t bytes
         )
 {
@@ -384,7 +384,7 @@ void nvm_flush(
  */
 #ifdef NVM_EXT
 void nvm_flush1(
-        void ^ptr 
+        const void ^ptr
         )
 {
     nvm_thread_data *td = nvm_get_thread_data();
@@ -434,7 +434,7 @@ void nvm_flush1(
 }
 #else
 void nvm_flush1(
-        void *ptr    
+        const void *ptr
         )
 {
     nvm_thread_data *td = nvm_get_thread_data();
@@ -480,87 +480,6 @@ void nvm_flush1(
                 }
             }
         }
-    }
-}
-#endif //NVM_EXT
-
-/**
- * This does an immediate flush of a range of bytes rather than just saving
- * the address for flushing before next persist. This has less overhead
- * than scheduling the flush, but the data is lost from the processor cache.
- * 
- * @param[in] ptr
- * The is the first byte of NVM to flush from caches
- * 
- * @param[in] bytes
- * The number of bytes to flush. Pass zero to flush just one cache line.
- */
-#ifdef NVM_EXT
-void nvm_flushi(
-        void ^ptr, 
-        size_t bytes
-        )
-{
-    /* Optimize case of just one cache line */
-    if (bytes == 0)
-    {
-        nvms_flush((uint64_t)ptr);
-        return;
-    }
-
-    /* need to get the cache line size to decide how many cache lines need
-     * flushing. */
-    nvm_app_data *ad = nvm_get_app_data();
-    uint64_t clsz = ad->params.cache_line; // cache line size
-
-    /* Align to a cache line boundary to ensure all cache lines are covered */
-    uint64_t addr = (uint64_t)ptr;
-    uint64_t off = addr & (clsz - 1);
-    addr -= off;
-    bytes += off;
-
-    /* loop flushing one cache line each time around. */
-    while (1)
-    {
-        nvms_flush(addr);
-        if (bytes <= clsz)
-            return;
-        addr += clsz;
-        bytes -= clsz;
-    }
-}
-#else
-void nvm_flushi(
-        void *ptr,    
-        size_t bytes
-        )
-{
-    /* Optimize case of just one cache line */
-    if (bytes == 0)
-    {
-        nvms_flush((uint64_t)ptr);
-        return;
-    }
-
-    /* need to get the cache line size to decide how many cache lines need
-     * flushing. */
-    nvm_app_data *ad = nvm_get_app_data();
-    uint64_t clsz = ad->params.cache_line; // cache line size
-
-    /* Align to a cache line boundary to ensure all cache lines are covered */
-    uint64_t addr = (uint64_t)ptr;
-    uint64_t off = addr & (clsz - 1);
-    addr -= off;
-    bytes += off;
-
-    /* loop flushing one cache line each time around. */
-    while (1)
-    {
-        nvms_flush(addr);
-        if (bytes <= clsz)
-            return;
-        addr += clsz;
-        bytes -= clsz;
     }
 }
 #endif //NVM_EXT
@@ -669,7 +588,6 @@ void nvm_longjmp(
         errno = EINVAL;
         nvms_assert_fail("Bad nvm_jmp_buf for nmv_longjmp");
     }
-
 
     /* Abort and end transactions until we are at the same depth as the
      * nvm_setjmp. */
@@ -860,6 +778,6 @@ uint16_t nvm_cas2(
     return ret;
 }
 #endif
-    //TODO+ before calling nvms_corrupt mark the nvm_region as failed for
-    // corruption. Have a status that is the mechanism of the last detach:
-    // clean, assert, or corruption
+//TODO+ before calling nvms_corrupt mark the nvm_region as failed for
+//TODO+ corruption. Have a status that is the mechanism of the last detach:
+//TODO+ clean, assert, or corruption

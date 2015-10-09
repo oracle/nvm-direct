@@ -448,10 +448,10 @@ extern "C"
      */
 #ifdef NVM_EXT
 #define NVM_ALLOC(heap, type, count) \
-        ((type^)nvm_alloc((heap), shapeof(type), (count))
+        ((type^)nvm_alloc((heap), shapeof(type), (count)))
 #else
 #define NVM_ALLOC(heap, type, count) \
-    ((type*)nvm_alloc((heap), shapeof(type), (count))
+    ((type*)nvm_alloc((heap), shapeof(type), (count)))
 #endif //NVM_EXT
     
     /**
