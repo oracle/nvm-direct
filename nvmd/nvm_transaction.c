@@ -3887,8 +3887,7 @@ int nvm_get_txconfig(
  * configuration of a region.
  */
 #ifdef NVM_EXT
-persistent
-struct nvm_txconfig_ctx
+persistent struct nvm_txconfig_ctx
 {
     /**
      * This is the head of the linked list on nvm_trans_table structs to add

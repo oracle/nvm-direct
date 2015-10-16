@@ -130,28 +130,22 @@ extern const nvm_type nvm_type_branch;
 extern const nvm_type nvm_type_branch_v1;
 extern const nvm_type nvm_type_branch_v2;
 #ifdef NVM_EXT
-persistent 
-struct
+persistent struct branch
 USID("a063 6cdd 76e7 8b42 0c32 eeab d43c 829c") 
-branch
 {
     uint64_t version; // this is the version number changed by upgrade
     unsigned long data[0];
 };
 typedef persistent struct branch branch;
-persistent
-struct
+persistent struct branch_v1
 USID("b0a2 29e0 449d 54cb 8bdd 5c52 356e f016")
-branch_v1
 {
     uint64_t version1; // this is the version number changed by upgrade
     unsigned long data[0];
 };
 typedef persistent struct branch_v1 branch_v1;
-persistent
-struct
+persistent struct branch_v2
 USID("f8e7 5535 672d 1d12 f534 4786 81e2 1a8c")
-branch_v2
 {
     uint64_t version2; // this is the version number changed by upgrade
     unsigned long data[0];
@@ -303,10 +297,8 @@ const nvm_type nvm_type_branch_v1 = {
  * It holds the mutexes that protect the pointers.
  */
 #ifdef NVM_EXT
-persistent
-struct 
+persistent struct root
 USID("2c04 2fa4 9020 80f9 b90b c3a4 3502 958f")
-root
 {
     nvm_mutex mtx[ptrs]; // a bunch of mutexes
     nvm_heap ^heap; // heap in heap extent
@@ -385,9 +377,8 @@ const nvm_type nvm_type_logrec = {
  * It is the root struct of a log region
  */
 #ifdef NVM_EXT
-persistent struct
+persistent struct log
 USID("4f10 c888 407c a083 18f5 75d6 190b 5674")
-log
 {
     uint64_t count; // the number of records written to the log
     struct logrec recs[logsz];

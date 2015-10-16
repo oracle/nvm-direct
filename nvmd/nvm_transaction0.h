@@ -131,13 +131,12 @@ extern "C"
      * undo in NVM for one transaction. 
      */
 #ifdef NVM_EXT
-    persistent struct
+    persistent struct nvm_transaction
     USID("37ca 2aac e2f6 4639 18e6 f015 2d8c 2a6e")
     tag("One transaction slot for one transaction")
     version(0)
     alignas(16)    
     size(128)
-    nvm_transaction
     {
         /**
          * The USID that maps to the nvm_type for nvm_transaction
@@ -506,13 +505,11 @@ extern "C"
      * transaction needs more undo then another page can link to this one.
      */
 #ifdef NVM_EXT
-    persistent
-    struct 
-    USID("fb7a d37c e443 f03b 0e55 9be8 bd5e a95e")
+    persistent struct nvm_undo_blk
+   USID("fb7a d37c e443 f03b 0e55 9be8 bd5e a95e")
     tag("One block of undo for a transaction")
     version(0)
     size(4*1024)
-    nvm_undo_blk
     {
         /**
          * The USID that maps to the nvm_type for nvm_undo_blk
@@ -649,13 +646,11 @@ extern "C"
 #define TRANS_TABLE_SLOTS (63)
 #define TRANS_TABLE_UNDO_BLKS (254)
 #ifdef NVM_EXT
-    persistent
-    struct 
+    persistent struct nvm_trans_table
     USID("1c2b e750 6f5f f07a 3083 5fc7 b2be 8c09")
     tag("A group of transaction slots and undo blocks")
     version(0)
     size(1024*1024)
-    nvm_trans_table
     {
         /**
          * The USID that maps to the nvm_type for nvm_trans_table
@@ -840,8 +835,7 @@ extern "C"
      * the location to restore.
      */
 #ifdef NVM_EXT
-    persistent
-    struct nvm_restore
+    persistent struct nvm_restore
     {
         /** address to restore to */
         void ^addr;
@@ -893,8 +887,7 @@ extern "C"
      * nested transaction acquired the lock.
      */
 #ifdef NVM_EXT
-    persistent
-    struct nvm_lkrec
+    persistent struct nvm_lkrec
     {
         /** Previous nvm_lkrec in this transacation or a parent */
         nvm_lkrec ^prev;
@@ -962,8 +955,7 @@ extern "C"
      * state must be identical in both structs.
      */
 #ifdef NVM_EXT
-    persistent
-    struct nvm_on_unlock
+    persistent struct nvm_on_unlock
     {
         /** Previous nvm_lkrec or nvm_on_unlock operation or null if none */
         nvm_lkrec ^prev;
@@ -1015,8 +1007,7 @@ extern "C"
      * determine which nested transaction set the savepoint.
      */
 #ifdef NVM_EXT
-    persistent
-    struct nvm_savepnt
+    persistent struct nvm_savepnt
     {
         /** Previous nvm_savepnt in this transacation or a parent */
         nvm_savepnt ^prev;
@@ -1057,8 +1048,7 @@ extern "C"
      * transaction.
      */
 #ifdef NVM_EXT
-    persistent
-    struct nvm_nested
+    persistent struct nvm_nested
     {
         /** Previous nvm_nested operation or null if none */
         nvm_nested ^prev;
@@ -1089,8 +1079,7 @@ extern "C"
      * this undo record is applied.
      */
 #ifdef NVM_EXT
-    persistent
-    struct nvm_on_abort
+    persistent struct nvm_on_abort
     {
         /** This is the USID that identifies the function to call  */
         void (|func@)();
@@ -1118,8 +1107,7 @@ extern "C"
      * with.
      */
 #ifdef NVM_EXT
-    persistent
-    struct nvm_on_commit
+    persistent struct nvm_on_commit
     {
         /** Previous nvm_on_commit operation or null if none */
         nvm_on_commit ^prev;

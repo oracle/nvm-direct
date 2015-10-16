@@ -1,0 +1,127 @@
+#!/bin/bash 
+echo compiling with nvmds/bin/gccX
+
+# This script is used as the compiler for the DebugX configurations. It must be
+# in the path when building those configurations. The precompiler clang must
+# also be in the path.
+
+# define the path name of the compiler to use
+CC=gcc
+#ICC=/usr/local/packages/icc_remote/12.0.5.226/bin/icc
+
+#define the path name of the NVM extension precompiler
+CX=clang
+
+# scan the arguments finding the object and source files. The rest of the
+# arguments are saved for calling the compiler.
+OBJ=0   # set when -o encountered meaning the next arg is the output file
+PPARGS= # arguments for the preprocessor
+CARGS=  # arguments for the C compiler
+ONAME=  # output files base name - adds extension to get the file
+SRC=    # C source file containing NVM extensions
+
+for ARG in "$@" ; do
+#    echo next arg: $ARG
+
+    if [ "$ARG" == '-c' ]
+    then
+       # discard the -c
+#       echo -c found
+       continue
+    fi
+
+    if [ "$ARG" == '-o' ]
+    then
+#       echo -o found
+       OBJ=1
+       continue
+    fi
+
+    if [ $OBJ = 1 ]
+    then
+       ONAME=${ARG%.o}
+       OBJ=2
+#       echo output saved as ${ONAME}.o
+       continue
+    fi
+
+    if [[ "$ARG" = -M* ]]
+    then
+        PPARGS="$PPARGS $ARG"
+#        echo ppargs now $PPARGS
+        continue
+    fi
+
+    if [[ "$ARG" = -I* ]]
+    then
+        PPARGS="$PPARGS $ARG"
+#        echo ppargs now $PPARGS
+        continue
+    fi
+
+    if [[ "$ARG" = -D* ]]
+    then
+        PPARGS="$PPARGS $ARG"
+#        echo ppargs now $PPARGS
+        continue
+    fi
+
+    if [[ "$ARG" = *.c ]]; then
+        SRC=$ARG
+#        echo source file is $SRC
+        continue
+    fi
+
+    CARGS="$CARGS $ARG"
+#    echo cargs now $CARGS
+
+done
+
+
+# Remove old output file versions to ensure they are not used if this fails
+rm -f ${ONAME}.ix ${ONAME}.i ${ONAME}.o
+
+# Run the standard preprocessor to get the input for the precompiler
+CMD="$CC -E $PPARGS $CARGS -o ${ONAME}.ix $SRC"
+echo "    $CMD"
+$CMD
+X=$?
+if [ $X -ne 0 ]
+then
+    echo "    Status $X from $CC"
+    exit $X
+fi
+
+# Run the NVM extensions precompiler for a standard C preprocessor outputfile
+CMD="$CX -n -Wno-invalid-preprocessed-input -xc ${ONAME}.ix -o  ${ONAME}.i"
+#CMD="$CX -n -xc ${ONAME}.ix -o  ${ONAME}.i"
+echo "    $CMD"
+$CMD
+X=$?
+if [ $X -ne 0 ]
+then
+    echo "    Status $X from $CX"
+    exit $X
+fi
+
+# Work around some clang9 bugs
+#sed -i "s/typedef typedef/typedef/" ${ONAME}.i
+#sed -i "/enum __nvm_assert/d" ${ONAME}.i
+
+# until I get usidmap working remove __ from __nvm_type*
+sed -i "s/__nvm_type/nvm_type/g" ${ONAME}.i
+
+# gcc complains when an initializer of a single scalar union misses {}
+CARGS="$CARGS -Wno-missing-braces"
+
+# Run the C compiler phase to generate the desired .o
+CMD="$CC -c -o ${ONAME}.o $CARGS ${ONAME}.i"
+echo "    $CMD"
+$CMD
+X=$?
+if [ $X -ne 0 ]
+then
+    echo "    Status $X from $CC"
+    exit $X
+fi
+

@@ -74,10 +74,8 @@ extern "C"
      */
 #ifdef NVM_EXT
     typedef persistent struct nvm_blk nvm_blk;
-    persistent
-    struct
+    persistent struct nvm_link
     tag("Link in doubly linked list of nvm_blk") 
-    nvm_link
     {
         /** Pointer to the next node in the list */
         nvm_blk ^fwrd;
@@ -107,10 +105,8 @@ extern "C"
      * NULL back pointer, and the tail has a NULL forward pointer.
      */
 #ifdef NVM_EXT
-    persistent
-    struct
+    persistent struct nvm_list
     tag("Doubly linked list of nvm_blk")
-    nvm_list
     {
         /** Pointer to the head of the list */
         nvm_blk ^head;
@@ -139,14 +135,12 @@ extern "C"
      * free block of zeroed NVM. 
      */
 #ifdef NVM_EXT
-    persistent
-    struct 
+    persistent struct nvm_blk
     USID("4d8a b944 afee 7ddd 06c7 ac66 48d7 e7b3")
     tag("NVM heap control block describing one chunk of NVM")
     version(0)
     alignas(64)
     size(64)
-    nvm_blk
     {
         /**
          * The type usid is first. It is used to verify heap and freelist 
@@ -265,13 +259,11 @@ extern "C"
      * grouping multiple allocations for simultaneous deallocation.
      */
 #ifdef NVM_EXT
-    persistent
-    struct 
+    persistent struct nvm_heap
     USID("f728 4991 8dcf 67f2 c6d4 8417 fe4a bdf6")
     tag("Header of a heap managed extent containing heap metadata")
     version(0)
     size(1024)
-    nvm_heap
     {
         /**
          * This is the ASCII name of the heap. Note that this imposes a 63 

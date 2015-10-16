@@ -1338,8 +1338,7 @@ int nvm_detach_region(
  * shrink an extent in a region. It is used by two different callbacks.
  */
 #ifdef NVM_EXT
-persistent
-struct nvm_remx_ctx
+persistent struct nvm_remx_ctx
 {
     /**
      * offset into the region file where the NVM begins

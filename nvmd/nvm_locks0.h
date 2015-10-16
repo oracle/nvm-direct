@@ -76,12 +76,10 @@ extern "C"
  * structs.
  */
 #ifdef NVM_EXT
-persistent
-struct
+persistent struct nvm_amutex
 tag("Mutex to lock NVM data structures for a transaction")
 alignas(8)
 size(8)
-nvm_amutex
 {
     /** Force 8 byte alignment without precompiler support. */
     uint64_t _align[0];
@@ -179,13 +177,11 @@ NVM_SRP(nvm_amutex)
  * will be.
  */
 #ifdef NVM_EXT
-persistent
-struct
+persistent struct nvm_mutex_array
 USID("334f c14d 262d a28c e5e0 4e9e 3750 9c23")
 tag("Array of mutexes to lock objects by their address")
 alignas(8)
 size(24)
-nvm_mutex_array
 {
     /**
      * This is the number of mutexes in the array.

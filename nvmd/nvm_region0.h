@@ -90,11 +90,10 @@ extern "C"
      * application managed.
      */
 #ifdef NVM_EXT
-    persistent struct    
+    persistent struct nvm_extent
     USID("93dd 163c 10b1 0691 fdf7 80fe ccc9 5b0a")
     tag("One extent of a region file")
     version(0)
-    nvm_extent
     {
         /**
          * This points to the beginning of the extent
@@ -224,12 +223,11 @@ extern "C"
      * region. All data in the NVM region can be reached from this object.
      */
 #ifdef NVM_EXT
-    persistent struct    
+    persistent struct nvm_region
     USID("eeae 207b 7891 7578 d7ae b6aa 1294 c9a6")
     tag("An NVM library managed region begins with an nvm_region")
     version(0)
     size(1024)
-    nvm_region
     {
         /**
          * The first bytes of every NVM region created by nvm is the type

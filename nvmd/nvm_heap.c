@@ -1360,12 +1360,12 @@ int nvm_query_heap(
  * a freelist. It simply provides the address of the nvm_blk to free.
  */
 #ifdef NVM_EXT
-persistent
-struct nvm_free_ctx
+persistent struct nvm_free_ctx
 {
     nvm_blk ^blk;
 };
 typedef persistent struct nvm_free_ctx nvm_free_ctx;
+
 USID("3191 c3be 57cf 5408 3492 134c df53 6df7")
 void nvm_free_callback@(nvm_free_ctx ^ctx);
 #else
