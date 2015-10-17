@@ -366,7 +366,8 @@ extern "C"
          * field keeps the old struct name, but gets a new USID. The old USID
          * is associated with a struct name that implies it is obsolete, and
          * specifies a function to do an in place conversion. This is a pointer
-         * to that function or 0 if there is none.
+         * to that function or 0 if there is none. The upgrade function returns
+         * zero if it fails to to upgrade and one if successful.
          */
 #ifdef NVM_EXT
         int (* const upgrade@)();
@@ -493,7 +494,7 @@ extern "C"
      * @return 1 if all mappings saved, 0 if there are redundant mappings that
      * are ignored.,
      */
-    int nvm_usid_register_externs(const nvm_extern *syms[]);
+    int nvm_usid_register_externs(const nvm_extern *const syms[]);
 
     /**
      * This is identical to nvm_usid_register_externs except that the input is
@@ -505,7 +506,7 @@ extern "C"
      * 
      * @return  1 if successful, 0 if duplicate of an existing entry found.
      */
-    int nvm_usid_register_types(const nvm_type *types[]);
+    int nvm_usid_register_types(const nvm_type * const types[]);
 
     /**
      * This finds an nvm_extern entry in the USID map. If there is not an entry
@@ -519,7 +520,7 @@ extern "C"
 
 #ifdef NVM_EXT
     /**
-     *  Given a USID function pointer to a callback, return the USID
+     *  Given a USID function pointer to a callback, return the nvm_extern
      */
     static inline
     const nvm_extern *nvm_callback_find(void (|func@)())

@@ -252,7 +252,7 @@ static int nvm_usid_register1(
     map->map[probe].name = name;
 
     //TODO+ Rather than have a fixed size set by a parameter, the map should
-    // double in size if over half full when here
+    //TODO+ double in size if over half full when here
 
     return 1; // success
 }
@@ -285,12 +285,12 @@ static int nvm_usid_register1(
  * @return 1 if all mappings saved, 0 if there are redundant mappings that are
  * ignored.,
  */
-int nvm_usid_register_externs(const nvm_extern *syms[])
+int nvm_usid_register_externs(const nvm_extern *const syms[])
 {
     nvm_usid_map *map = nvm_usid_get_map();
 
     /* loop registering every nvm_extern */
-    const nvm_extern **spp;
+    const nvm_extern *const *spp;
     int unique = 1;
     for (spp = syms; *spp; spp++)
     {
@@ -312,10 +312,10 @@ int nvm_usid_register_externs(const nvm_extern *syms[])
  * @return 1 if all mappings saved, 0 if there are redundant mappings that are
  * ignored.,
  */
-int nvm_usid_register_types(const nvm_type *types[])
+int nvm_usid_register_types(const nvm_type *const types[])
 {
     nvm_usid_map *map = nvm_usid_get_map();
-    const nvm_type **tpp;
+    const nvm_type *const *tpp;
     int unique = 1;
     for (tpp = types; *tpp; tpp++)
     {
@@ -354,8 +354,16 @@ void nvm_usid_init(nvm_app_data *ad, uint32_t ents)
     map->size = ents;
     ad->usid_map = map;
 
-    /* Register mappings for this library. */
+    /* Register USID to symbol mappings for this library. */
+#ifdef NVM_EXT
+    /* Call the usidmap utility generated code if using C extensions */
+    nvm_usid_register();
+#else
+    /* Call the hand crafted nvm_type and nvm_extern registrations. These
+     * usually have some bugs because it is hard to keep the hand crafted
+     * definitions in sync with the persistent struct declarations. */
     nvm_usidmap_register();
+#endif // NVM_EXT
 }
 /**
  * This finds an nvm_extern entry in the USID map. If there is not an entry for

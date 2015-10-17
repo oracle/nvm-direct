@@ -126,10 +126,11 @@ const int longjump = (10240*2);
  * The test repeatedly allocates and deallocates random sized instances
  * of the persistent struct branch. They are allocated from the heap extent.
  */
-extern const nvm_type nvm_type_branch;
-extern const nvm_type nvm_type_branch_v1;
-extern const nvm_type nvm_type_branch_v2;
 #ifdef NVM_EXT
+
+/*
+ * Current version of branch struct
+ */
 persistent struct branch
 USID("a063 6cdd 76e7 8b42 0c32 eeab d43c 829c") 
 {
@@ -137,34 +138,20 @@ USID("a063 6cdd 76e7 8b42 0c32 eeab d43c 829c")
     unsigned long data[0];
 };
 typedef persistent struct branch branch;
-persistent struct branch_v1
-USID("b0a2 29e0 449d 54cb 8bdd 5c52 356e f016")
-{
-    uint64_t version1; // this is the version number changed by upgrade
-    unsigned long data[0];
-};
-typedef persistent struct branch_v1 branch_v1;
+
+/*
+ * Second version of branch struct
+ */
+typedef persistent struct branch_v2 branch_v2;
+int upgrade_br_v2@(branch_v2 ^b2); // function to upgrade from v2 to current
+
 persistent struct branch_v2
 USID("f8e7 5535 672d 1d12 f534 4786 81e2 1a8c")
+upgrade(branch, upgrade_br_v2)
 {
     uint64_t version2; // this is the version number changed by upgrade
     unsigned long data[0];
 };
-typedef persistent struct branch_v2 branch_v2;
-
-/*
- * Upgrade a branch_v1 to branch_v2
- */
-int upgrade_br_v1@(branch_v1 ^b1)
-{
-    nvm_verify(b1, shapeof(branch_v1));
-    if (b1=>version1 && b1=>version1 != 1)
-        return 0; // fail due to corruption
-    branch_v2 ^b2 = (branch_v2^)b1;
-    nvm_verify(b2, shapeof(branch_v2));
-    b2=>version2 @= 2;
-    return 1; // success
-}
 
 /*
  * Upgrade a branch_v2 to branch
@@ -179,7 +166,38 @@ int upgrade_br_v2@(branch_v2 ^b2)
     b=>version @= 3;
     return 1; // success
 }
+
+/*
+ * Original version of branch struct
+ */
+typedef persistent struct branch_v1 branch_v1;
+int upgrade_br_v1@(branch_v1 ^b1); // function to upgrade from v1 to v2
+
+persistent struct branch_v1
+USID("b0a2 29e0 449d 54cb 8bdd 5c52 356e f016")
+upgrade(branch_v2, upgrade_br_v1)
+{
+    uint64_t version1; // this is the version number changed by upgrade
+    unsigned long data[0];
+};
+
+/*
+ * Upgrade a branch_v1 to branch_v2
+ */
+int upgrade_br_v1@(branch_v1 ^b1)
+{
+    nvm_verify(b1, shapeof(branch_v1));
+    if (b1=>version1 && b1=>version1 != 1)
+        return 0; // fail due to corruption
+    branch_v2 ^b2 = (branch_v2^)b1;
+    nvm_verify(b2, shapeof(branch_v2));
+    b2=>version2 @= 2;
+    return 1; // success
+}
 #else
+extern const nvm_type nvm_type_branch;
+extern const nvm_type nvm_type_branch_v1;
+extern const nvm_type nvm_type_branch_v2;
 struct branch
 {
     nvm_usid type_usid;
@@ -234,11 +252,10 @@ int upgrade_br_v2(branch_v2 *b2)
     NVM_TXSTORE(b->version, 3);
     return 1; // success
 }
-#endif //NVM_EXT
 
 /* The type descriptions for all 3 versions of branch. */
 const nvm_type nvm_type_branch = {
-    {0xa0636cdd76e78b42, 0x0c32eeabd43c829c} , // type_usid
+    {0xa0636cdd76e78b42, 0x0c32eeabd43c829c}, // type_usid
     "branch", // name
     "Test branch stuct", // tag
     sizeof(branch), //size
@@ -291,6 +308,7 @@ const nvm_type nvm_type_branch_v1 = {
         {0, 0, 0, 0, 0}
     }
 };
+#endif //NVM_EXT
 
 /*
  * The persistent struct root is the root struct in the main region
@@ -313,8 +331,8 @@ struct root
     nvm_heap_srp heap; // heap in heap extent
     branchArray_srp ptr; // struct branch ^ptr
 };
-typedef struct root root;
-#endif //NVM_EXT
+typedef  struct root root;
+
 const nvm_type nvm_type_root = {
     {0x2c042fa4902080f9, 0xb90bc3a43502958f}, // type_usid
     "root", // name
@@ -334,6 +352,7 @@ const nvm_type nvm_type_root = {
         {0, 0, 0, 0, 0}
     }
 };
+#endif //NVM_EXT
 
 /*
  * This is one pretend log record
@@ -392,10 +411,9 @@ struct log
     struct logrec recs[logsz];
 };
 typedef struct log log;
-#endif //NVM_EXT
+
 const nvm_type nvm_type_log = {
-    {0x4f10c888407ca083, 0x18f575d6190b5674}
-    , // type_usid
+    {0x4f10c888407ca083, 0x18f575d6190b5674}, // type_usid
     "log", // name
     "Test log stuct", // tag
     sizeof(log), //size
@@ -426,6 +444,7 @@ const nvm_type *test_usid_types[] = {
     &nvm_type_log,
     NULL // NULL terminator
 };
+#endif //NVM_EXT
 
 /* This is the context for each thread doing allocations */
 struct counts
@@ -827,6 +846,7 @@ end_thread:
  * This is the main driver of the test
  */
 #ifdef NVM_EXT
+void usid_register(void);
 int
 main(int argc, char** argv)
 {
@@ -869,7 +889,7 @@ main(int argc, char** argv)
     /* We get here if we are the child process or there are no children.
      * The first thing is to initialize the NVM library for the main thread */
     nvm_thread_init();
-    nvm_usid_register_types(test_usid_types);
+    usid_register();
 
     again:;
     /* If attaching the region does not work then create a new one. This will

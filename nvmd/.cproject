@@ -42,7 +42,7 @@
 								<option id="gnu.c.compiler.option.dialect.std.1593609175" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" value="gnu.c.compiler.dialect.default" valueType="enumerated"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.779279629" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.c.linker.so.debug.641588797" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.so.debug">
+							<tool command="gcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX}${OUTPUT} ${INPUTS}" id="cdt.managedbuild.tool.gnu.c.linker.so.debug.641588797" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.so.debug">
 								<option defaultValue="true" id="gnu.c.link.so.debug.option.shared.506250375" name="Shared (-shared)" superClass="gnu.c.link.so.debug.option.shared" valueType="boolean"/>
 								<option id="gnu.c.link.option.soname.1160940712" name="Shared object name (-Wl,-soname=)" superClass="gnu.c.link.option.soname" value="" valueType="string"/>
 								<option id="gnu.c.link.option.libs.1475122803" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
@@ -180,7 +180,7 @@
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1887707070" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
-							<tool id="cdt.managedbuild.tool.gnu.c.linker.so.debug.665697896" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.so.debug">
+							<tool command="../bin/usid_build ; gcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX}${OUTPUT} ./usid.o ${INPUTS}" id="cdt.managedbuild.tool.gnu.c.linker.so.debug.665697896" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.so.debug">
 								<option defaultValue="true" id="gnu.c.link.so.debug.option.shared.49822795" name="Shared (-shared)" superClass="gnu.c.link.so.debug.option.shared" valueType="boolean"/>
 								<option id="gnu.c.link.option.soname.1682841380" name="Shared object name (-Wl,-soname=)" superClass="gnu.c.link.option.soname" value="" valueType="string"/>
 								<option id="gnu.c.link.option.libs.1942939655" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">

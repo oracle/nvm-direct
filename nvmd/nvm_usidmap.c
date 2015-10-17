@@ -48,7 +48,9 @@ SOFTWARE.
      NVM library. Some day this file will disappear.
 
  */
-//#include <sys/types.h>
+#ifdef NVM_EXT
+/* generated file usid.c contains the nvm_type and nvm_extern  definitions */
+#else
 #include "nvm_usid.h"
 typedef struct {
     const nvm_usid usid;
@@ -844,3 +846,4 @@ int nvm_usidmap_register(void)
     
     return unique;
 }
+#endif //NVM_EXT

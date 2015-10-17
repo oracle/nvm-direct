@@ -1,0 +1,29 @@
+#!/bin/bash 
+# This script should be run just before running the linker
+# It creates the nvm_type and nvm_extern definitions.
+
+# Cleanup last build
+echo usid_build called
+rm -f usid.c usid.json usid.o
+
+# construct usid.c from the .usd files
+CMD="usidmap -r=nvm_usid_register -c=./usid.c -d=./usid.json ./*.usd"
+echo "    $CMD"
+$CMD
+X=$?
+if [ $X -ne 0 ]
+then
+    echo "    Status $X from usidmap"
+    exit $X
+fi
+
+# compile usid.c
+CMD="gcc -O0 -g3 -c -I../../nvmd -I../../nvmds -fPIC -o ./usid.o ./usid.c"
+echo "    $CMD"
+$CMD
+X=$?
+if [ $X -ne 0 ]
+then
+    echo "    Status $X from usidmap"
+    exit $X
+fi

@@ -94,7 +94,11 @@ extern "C"
      * @return 1 if all mappings saved, 0 if there are redundant mappings that
      * are ignored.
      */
+#ifdef NVM_EXT
+    int nvm_usid_register(void);
+#else
     int nvm_usidmap_register(void);
+#endif //NVM_EXT
 
 
 #ifdef	__cplusplus

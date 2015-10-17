@@ -109,7 +109,7 @@ fi
 #sed -i "/enum __nvm_assert/d" ${ONAME}.i
 
 # until I get usidmap working remove __ from __nvm_type*
-sed -i "s/__nvm_type/nvm_type/g" ${ONAME}.i
+#sed -i "s/__nvm_type/nvm_type/g" ${ONAME}.i
 
 # gcc complains when an initializer of a single scalar union misses {}
 CARGS="$CARGS -Wno-missing-braces"
