@@ -381,15 +381,11 @@ static nvm_heap *nvm_create_baseheap(
 #ifdef NVM_EXT
 void ^nvm_allocNT(nvm_heap ^heap, const nvm_type *tp)
 {
-    /* Verify this is a valid heap pointer */
-    nvm_verify(heap, shapeof(nvm_heap));
-
     /* Verify still in non-transactional allocation */
     nvm_blk ^aloc = heap=>nvb_free;
     if (aloc == 0)
         nvms_assert_fail("Non-transactional allocation called after "
             "nvm_finishNT() called");
-    nvm_verify(aloc, shapeof(nvm_blk)); // verify USID
 
     /* Verify 64 byte alignment is OK */
     if (tp->align > sizeof(nvm_blk))
@@ -533,14 +529,10 @@ void *nvm_allocNT(nvm_heap *heap, const nvm_type *tp)
 #ifdef NVM_EXT
 void nvm_finishNT(nvm_heap ^heap)
 {
-    /* Verify this is a valid heap pointer */
-    nvm_verify(heap, shapeof(nvm_heap));
-
     /* Verify still in non-transactional allocation */
     nvm_blk ^free = heap=>nvb_free;
     if (free == 0)
         nvms_assert_fail("nvm_finishNT() called again");
-    nvm_verify(free, shapeof(nvm_blk)); // verify USID
 
     /* Add the block to the appropriate freelist. Pick the free space list to
      * add this to based on size. */
@@ -790,10 +782,8 @@ nvm_heap *nvm_create_heap(
 #ifdef NVM_EXT
 int nvm_resize_heap(nvm_heap ^heap, size_t psize)
 {
-    /* Verify this is a heap and find the region. */
-    nvm_verify(heap, shapeof(nvm_heap));
+    /* Find the region. */
     nvm_region ^rg = heap=>region;
-    nvm_verify(rg, shapeof(nvm_region));
 
     /* Begin a transaction to do the resize */
     @ rg=>desc { //nvm_txbegin(rg=>desc);
@@ -811,9 +801,7 @@ int nvm_resize_heap(nvm_heap ^heap, size_t psize)
          * the last block of NVM. */
         size_t osize = heap=>psize; // old physical size
         nvm_blk ^nvb_end = (nvm_blk^)((uint8_t^)ext + osize) - 1;
-        nvm_verify(nvb_end, shapeof(nvm_blk));
         nvm_blk ^nvb_last = nvb_end=>neighbors.back;
-        nvm_verify(nvb_last, shapeof(nvm_blk));
         if (nvb_end=>ptr != 0)
             nvms_corruption("End nvm_blk ptr not null", nvb_end, nvb_end=>ptr);
 
@@ -1105,10 +1093,8 @@ int nvm_delete_heap@(
         nvm_heap ^heap
         )
 {
-    /* Verify this is a heap and find the region. */
-    nvm_verify(heap, shapeof(nvm_heap));
+    /* Find the region. */
     nvm_region ^rg = heap=>region;
-    nvm_verify(rg, shapeof(nvm_region));
 
     /* Get the address of the extent and verify it is not the base extent. */
     void ^ext = heap=>extent;
@@ -1246,9 +1232,6 @@ int nvm_delete_heap(
 #ifdef NVM_EXT
 void nvm_heap_setroot@(nvm_heap ^heap, void ^root)
 {
-    /* Verify this is a valid heap pointer */
-    nvm_verify(heap, shapeof(nvm_heap));
-
     /* The root object must be null or within the heap */
     if (root && ((uint8_t^)root < (uint8_t^)heap ||
         (uint8_t^)root >= (uint8_t^)heap + heap=>psize ))
@@ -1311,9 +1294,6 @@ int nvm_query_heap(
     /* start off with status of zero so even if there are errors the contents
      * are not garbage. */
     memset(stat, 0, sizeof(*stat));
-
-    /* Verify this is a valid heap pointer */
-    nvm_verify(heap, shapeof(nvm_heap));
 
     /* store stat contents from the heap struct */
     stat->name = heap=>name;
@@ -1441,9 +1421,6 @@ void ^nvm_alloc@(
         errno = EINVAL;
         return 0;
     }
-
-    /* Verify this is a valid heap pointer */
-    nvm_verify(heap, shapeof(nvm_heap));
 
     /* verify in transactional allocation */
     if (heap=>nvb_free != 0)
@@ -1726,9 +1703,8 @@ int nvm_free@(
         return 0;
     }
 
-    /* Find the heap this was allocated from and verify it is intact. */
+    /* Find the heap this was allocated from. */
     nvm_heap ^heap = nvb=>ptr;
-    nvm_verify(heap, shapeof(nvm_heap));
 
     /* It is an error if the heap is being deleted or in creation by
      * another transaction. */
@@ -1810,18 +1786,14 @@ void nvm_free_callback@(nvm_free_ctx ^ctx)
     if (nvb == 0)
         return;
 
-    /* Verify the nvm_blk is not corrupt. */
-    nvm_verify(nvb, shapeof(nvm_blk));
-
     /* Verify the allocated size is reasonable */
     nvm_blk ^next = nvb=>neighbors.fwrd;
     size_t space = (next - nvb - 1) * sizeof(nvm_blk);
     if (nvb=>allocated == 0 || nvb=>allocated > space)
         nvms_corruption("Invalid allocated size at free", nvb, next);
 
-    /* Verify the heap pointer */
+    /* Get the heap pointer */
     nvm_heap ^heap = (nvm_heap ^)nvb=>ptr;
-    nvm_verify(heap, shapeof(nvm_heap));
 
     /* Zero the space being released before getting any locks. This is 
      * idempotent if reapplied. All pointers to the block should have been
@@ -1991,7 +1963,6 @@ static void nvm_badbk(const char *msg, nvm_blk *nvb)
 size_t nvm_freelists_check(nvm_heap ^heap)
 {
     size_t ret = sizeof(nvm_heap);
-    nvm_verify(heap, shapeof(nvm_heap));
 
     nvm_blk ^base = heap=>first;
     nvm_blk ^end = (nvm_blk ^)((uint8_t^)heap + heap=>size - sizeof(nvm_blk));
@@ -3081,9 +3052,6 @@ static nvm_blk ^nvm_alloc_blk@(nvm_heap ^heap, size_t request, uint32_t align)
     if (align > NVM_ALIGN)
         nvms_assert_fail("Unsupported alignment");
 
-    /* verify heap is valid */
-    nvm_verify(heap, shapeof(nvm_heap));
-
     /* find the free list with the smallest blocks that are big enough, and
      * contain some blocks. */
     nvm_list ^fl = heap=>free; // array of free lists
@@ -3106,7 +3074,6 @@ static nvm_blk ^nvm_alloc_blk@(nvm_heap ^heap, size_t request, uint32_t align)
     while (1)
     {
         /* Check for corruption. Must point back at its freelist and be free. */
-        nvm_verify(nvb, shapeof(nvm_blk));
         if (nvb=>ptr != fl)
             nvms_corruption("Bad pointer in free blk", nvb, fl);
         if (nvb=>allocated != 0)
@@ -3136,9 +3103,6 @@ static nvm_blk ^nvm_alloc_blk@(nvm_heap ^heap, size_t request, uint32_t align)
             /* all blocks on this list are bigger than what we need so just
              * take the head of the list. */
             nvb = fl=>head;
-
-            /* check for corruption */
-            nvm_verify(nvb, shapeof(nvm_blk));
 
             /* determine available space */
             space = ((nvb=>neighbors.fwrd - nvb) - 1) * sizeof(^nvb);
@@ -3331,14 +3295,10 @@ static nvm_blk *nvm_alloc_blk(nvm_heap *heap, size_t request, uint32_t align)
 #ifdef NVM_EXT
 static void nvm_free_blk@(nvm_heap ^heap, nvm_blk ^nvb)
 {
-    /* Verify the heap is valid */
-    nvm_verify(heap, shapeof(nvm_heap));
-
     /* See if the block following this one is free, and not the nvm_blk
      * at the end of the memory managed by this nvm_heap. Note that an
      * allocated block will always have a forward neighbor. */
     nvm_blk ^nvb_next = nvb=>neighbors.fwrd;
-    nvm_verify(nvb_next, shapeof(nvm_blk));
     if (nvb_next=>allocated == 0 // if free
         && nvb_next=>neighbors.fwrd != 0) // not end of extent
     {
@@ -3364,7 +3324,6 @@ static void nvm_free_blk@(nvm_heap ^heap, nvm_blk ^nvb)
     /* See if there is a block preceeding this one and it is free. If so 
      * merge them. */
     nvm_blk ^nvb_prev = nvb=>neighbors.back;
-    nvm_verify(nvb_prev, shapeof(nvm_blk));
     if (nvb_prev && nvb_prev=>allocated == 0)
     {
         /* merge preceeding block with the block being released. First 

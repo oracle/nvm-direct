@@ -158,11 +158,9 @@ upgrade(branch, upgrade_br_v2)
  */
 int upgrade_br_v2@(branch_v2 ^b2)
 {
-    nvm_verify(b2, shapeof(branch_v2));
     if (b2=>version2 && b2=>version2 != 2)
         return 0; // fail due to corruption
     branch ^b = (branch^)b2;
-    nvm_verify(b, shapeof(branch));
     b=>version @= 3;
     return 1; // success
 }
@@ -186,11 +184,9 @@ upgrade(branch_v2, upgrade_br_v1)
  */
 int upgrade_br_v1@(branch_v1 ^b1)
 {
-    nvm_verify(b1, shapeof(branch_v1));
     if (b1=>version1 && b1=>version1 != 1)
         return 0; // fail due to corruption
     branch_v2 ^b2 = (branch_v2^)b1;
-    nvm_verify(b2, shapeof(branch_v2));
     b2=>version2 @= 2;
     return 1; // success
 }
@@ -562,7 +558,6 @@ void write_log(struct counts *cnts, int slot, uint32_t oldsz, uint32_t newsz)
 { @ cnts->logstat.desc {
     /* get the log struct */
     log ^lg = (log^)cnts->logstat.rootobject;
-    nvm_verify(lg, shapeof(log));
 
     /* get the record we are going to overwrite */
     struct logrec ^lr = %lg=>recs[lg=>count % logsz];
@@ -646,7 +641,7 @@ void alloc1(struct counts *cnts)
         /* Delete old ptr if any */
         branch ^^ptr = rs=>ptr;
         branch ^oldp = ptr[slot];
-        nvm_verify(oldp, shapeof(branch)); // This will occasionally upgrade
+//        nvm_verify(oldp, shapeof(branch)); // This will occasionally upgrade
         if (oldp)
         {
             /* it better have been upgraded to the current version */
@@ -1066,12 +1061,10 @@ main(int argc, char** argv)
         if (p)
         {
             nvm_blk ^nvb = ((nvm_blk^)p) - 1;
-            nvm_verify(nvb, shapeof(nvm_blk));
             init_consumed -= sizeof(nvm_blk) * (nvb=>neighbors.fwrd - nvb);
             init_cnt++;
         }
     }
-//    printf("init_consumed=%ld init_cnt=%d\n", init_consumed, init_cnt);
 
     struct counts cnts;
     memset(&cnts, 0, sizeof(cnts));
@@ -1148,7 +1141,6 @@ main(int argc, char** argv)
             n++;
             sz += p=>data[0];
             nvm_blk ^nvb = ((nvm_blk^)p) - 1;
-            nvm_verify(nvb, shapeof(nvm_blk));
             ovr += sizeof(nvm_blk) * (nvb=>neighbors.fwrd - nvb) - p=>data[0];
         }
     }
@@ -1443,7 +1435,6 @@ main(int argc, char** argv)
             init_cnt++;
         }
     }
-//    printf("init_consumed=%ld init_cnt=%d\n", init_consumed, init_cnt);
 
     struct counts cnts;
     memset(&cnts, 0, sizeof(cnts));

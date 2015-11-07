@@ -80,7 +80,7 @@ extern "C"
          * This is the name of the heap given when it was created. This is
          * used in reports, but is otherwise ignored.
          */
-        const char *name;
+        const char ^name;
 
         /**
          * This is the descriptor for the NVM region containing the heap

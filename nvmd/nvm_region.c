@@ -729,11 +729,8 @@ void ^nvm_new_root_object@(
     /*  get the region data. */
     nvm_region_data *rd = ad->regions[desc];
 
-    /* verify region USID is valid. */
-    nvm_region ^region = (nvm_region ^)rd->region;
-    nvm_verify(region, shapeof(nvm_region));    
-
     /* verify new root object is in the right region. */
+    nvm_region ^region = (nvm_region ^)rd->region;
     if (!nvm_region_ptr(region, (void^)rootobj))
     {
         errno = EINVAL;
@@ -1141,7 +1138,6 @@ int nvm_query_region(
     nvm_extent ^ext = rg=>extents;
     while (x--)
     {
-        nvm_verify(ext, shapeof(nvm_extent));
         stat->psize += ext=>size;
         ext++;
     }
@@ -1451,7 +1447,6 @@ void nvm_remx_callback@(nvm_remx_ctx ^ctx)
 
     /* Get the nvm_region address based on the descriptor. */
     nvm_region ^rg = ad->regions[desc]->region;
-    nvm_verify(rg, shapeof(nvm_region));
     uint8_t ^addr = ctx=>addr;
     if ((void*)rg != (void*)(addr - ctx=>offset))
         nvms_corruption("Inconsistent offset/addr in undo", rg, ctx);
@@ -1483,7 +1478,6 @@ void nvm_remx_callback@(nvm_remx_ctx ^ctx)
             nvm_extent ^ext = rg=>extents;
             for (x = 0; x < rg=>extents_size; x++, ext++)
             {
-                nvm_verify(ext, shapeof(nvm_extent));
                 uint8_t ^base = ext=>addr;
                 if (addr >= base && addr < base + ext=>size)
                 {
@@ -1714,7 +1708,6 @@ void ^nvm_add_extent@(
         /* lock the region mutex to ensure only one region reconfiguration can 
          * happen at a time. */
         nvm_region ^rg = rd->region;
-        nvm_verify(rg, shapeof(nvm_region));
         nvm_xlock(%rg=>reg_mutex);
 
         /* Before allocating the space in the file system we add the extent
@@ -1733,7 +1726,6 @@ void ^nvm_add_extent@(
                 rg, rg=>extents);
         for (cnt = 0; cnt < rg=>extents_size; xp++, cnt++)
         {
-            nvm_verify(xp, shapeof(nvm_extent));
             uint8_t ^addr = xp=>addr;
             if (addr == 0)
             {
@@ -1793,7 +1785,6 @@ void ^nvm_add_extent@(
                     nvm_extent ^nx = new_extents; // new extent
                     for (cnt = 0; cnt < rg=>extents_size; ox++, nx++, cnt++)
                     {
-                        nvm_verify(ox, shapeof(nvm_extent));
                         uint8_t ^addr = ox=>addr;
                         if (!nvm_addr_align(addr))
                             nvms_corruption("Bad pointer to NVM extent",
@@ -2164,7 +2155,6 @@ int nvm_remove_extent1@(
     /* Get the region address from the transaction */
     nvm_thread_data *td = nvm_get_thread_data();
     nvm_region ^rg = (void^)td->region;
-    nvm_verify(rg, shapeof(nvm_region));
 
     /* Verify extent is in the same region as the current transaction */
     if (!nvm_region_ptr(rg, addr))
@@ -2192,7 +2182,6 @@ int nvm_remove_extent1@(
             rg, rg=>extents);
     for (cnt = 0; cnt < rg=>extents_size; xp++, cnt++)
     {
-        nvm_verify(xp, shapeof(nvm_extent));
         uint8_t ^xbase = xp=>addr;
         if (xbase == addr)
             ext = xp;
@@ -2381,7 +2370,6 @@ int nvm_resize_extent1@(
      * be a shrink, this nested transaction will be aborted without modifying
      * anything. */
     nvm_region ^rg = rd->region;
-    nvm_verify(rg, shapeof(nvm_region));
     nvm_extent ^ext = 0;
     @{ //nvm_txbegin(0);
 
@@ -2403,7 +2391,6 @@ int nvm_resize_extent1@(
                     rg, rg=>extents);
             for (cnt = 0; cnt < rg=>extents_size; xp++, cnt++)
             {
-                nvm_verify(xp, shapeof(nvm_extent));
                 uint8_t ^addr = xp=>addr;
                 if (addr == extent)
                     ext = xp;
@@ -2787,7 +2774,6 @@ int nvm_query_extents(
 
     /* Get the nvm_region being queried. */
     nvm_region ^rg = rd->region;
-    nvm_verify(rg, shapeof(nvm_region));
 
     /* Share lock the region to ensure the extent status is stable. We begin a
      * transaction just to hold the lock. This might be a nested transaction
@@ -2813,7 +2799,6 @@ int nvm_query_extents(
         for (x = 0; x < rg=>extents_size; x++, ext++)
         {
             /* skip extents that are not in use. */
-            nvm_verify(ext, shapeof(nvm_extent));
             if (ext=>size == 0)
                 continue;
 
@@ -3164,7 +3149,6 @@ nvm_desc nvm_map_region(
     nvm_extent ^rext = rg=>extents;
     if (rext) for (x = 0; x < rg=>extents_size; x++, rext++)
     {
-        nvm_verify(rext, shapeof(nvm_extent));
         uint8_t ^addr = rext=>addr;
         if (!addr)
             continue;

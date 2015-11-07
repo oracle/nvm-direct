@@ -282,7 +282,6 @@ void nvm_txbegin(
     /* Region and transaction pointers */
     nvm_region_data *rd = NULL;
     nvm_transaction ^ptx = td->transaction; // parent transaction
-    nvm_verify(ptx, shapeof(nvm_transaction));
 
     /* Decide if a new transaction slot is needed. If this is a base transaction
      * or an off region nested transaction then a new slot is needed. */
@@ -328,7 +327,6 @@ void nvm_txbegin(
             if (atx=>desc == desc)
                 nvms_assert_fail("Duplicate child transaction region");
             atx = atx=>parent;
-            nvm_verify(atx, shapeof(nvm_transaction));
         }
 
         /* allocate a transaction slot for this base transaction */
@@ -350,7 +348,6 @@ void nvm_txbegin(
 
         /* use the nvm_transaction on the head of the free list */
         nvm_transaction ^tx = ttd->free_trans;
-        nvm_verify(tx, shapeof(nvm_transaction));
         tx=>desc = desc; // just in case it was trashed
 
         /* Remove it from the free list */
@@ -391,10 +388,8 @@ void nvm_txbegin(
     }
     else
     { extern @ {
-        /* This is beginning a nested transaction in parent region. First
-         * verify the nvm_transaction is valid */
+        /* This is beginning a nested transaction in parent region. */
         nvm_transaction ^tx = ptx;
-        nvm_verify(tx, shapeof(nvm_transaction));
 
         /* The current transaction must be active, aborting or committing */
         switch (nvm_get_state(tx))
@@ -409,13 +404,11 @@ void nvm_txbegin(
             break;
         }
 
-        /* If we cannot get the struct in this block, allocate a new undo block.
-         * Otherwise verify current undo block */
+        /* If we cannot get the struct in this block, allocate a new undo
+         * block. */
         const size_t size = sizeof(nvm_nested);
         if (tx=>undo_bytes < size)
             nvm_add_undo(tx, td); // add a new empty undo block
-        else
-            nvm_verify(tx=>undo, shapeof(nvm_undo_blk));
 
         /* Get the address to store the data for the operation. */
         nvm_nested ^nt = (nvm_nested ^)(tx=>undo_data - size);
@@ -645,7 +638,6 @@ void nvm_txend@()
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Ending transactions when there is none");
-    nvm_verify(tx, shapeof(nvm_transaction));
 
     /* If ending a local nested transaction  */
     nvm_nested ^nt = tx=>nstd_last;
@@ -664,7 +656,6 @@ void nvm_txend@()
         /* Get the undo block containing the nvm_nested record. The last
          * record had better be our record. */
         nvm_undo_blk ^ub = tx=>undo;
-        nvm_verify(ub, shapeof(nvm_undo_blk)); // verify undo block
         if (tx=>undo_data != (uint8_t^)nt)
             nvms_corruption("Undo inconsistent with nested transaction state",
                 tx=>undo_data, nt);
@@ -709,9 +700,8 @@ void nvm_txend@()
     nvm_trans_table_data *ttd = rd->trans_table;
     nvms_lock_mutex(ttd->trans_mutex, 1);
 
-    /* Verify the current head of the freelist is valid */
+    /* Get the current head of the freelist */
     nvm_transaction ^ntx = ttd->free_trans;
-    nvm_verify(ntx, shapeof(nvm_transaction));
 
     /* Decide if this transaction should be returned to the freelist. If
      * this transaction slot number indicates it should be reserved then
@@ -1013,9 +1003,8 @@ int nvm_txstatus(
     if (td->txdepth <= parent)
         return NVM_TX_NONE;
 
-    /* Verify the current base transaction is valid */
+    /* Get the current base transaction */
     nvm_transaction ^tx = td->transaction;
-    nvm_verify(tx, shapeof(nvm_transaction));
 
     /* Loop back through all transactions until the requested parent is
      * reached. */
@@ -1034,7 +1023,6 @@ int nvm_txstatus(
              * scanning it.
              */
             tx = tx=>parent;
-            nvm_verify(tx, shapeof(nvm_transaction));
             if (tx)
                 nt = tx=>nstd_last;
         } else {
@@ -1133,10 +1121,9 @@ int nvm_txstatus(
 #ifdef NVM_EXT
 nvm_desc nvm_txdesc@()
 {
-    /* Verify the current base transaction is valid */
+    /* Get the current base transaction */
     nvm_thread_data *td = nvm_get_thread_data();
     nvm_transaction ^tx = td->transaction;
-    nvm_verify(tx, shapeof(nvm_transaction));
     return tx=>desc;
 }
 #else
@@ -1161,10 +1148,9 @@ nvm_desc nvm_txdesc()
 #ifdef NVM_EXT
 uint16_t nvm_txslot@()
 {
-    /* Verify the current base transaction is valid */
+    /* Get the current base transaction */
     nvm_thread_data *td = nvm_get_thread_data();
     nvm_transaction ^tx = td->transaction;
-    nvm_verify(tx, shapeof(nvm_transaction));
     return tx=>slot;
 }
 #else
@@ -1210,7 +1196,6 @@ void nvm_add_undo@(nvm_transaction ^tx, nvm_thread_data *td)
 
     /* take the nvm_undo_blk on the head of the free list */
     nvm_undo_blk ^ub = ttd->free_undo;
-    nvm_verify(ub, shapeof(nvm_undo_blk)); // verify it is a valid undo block
 
     /* If the count of undo records is not zero then something awful has 
      * happened and there is an in use block on the freelist. */
@@ -1517,9 +1502,6 @@ void nvm_prep_undo(nvm_transaction ^tx)
         return;
     }
 
-    /* make sure we are actually looking at an undo block */
-    nvm_verify(ub, shapeof(nvm_undo_blk));
-
     /* Find the pointer to the latest undo data stored in the block. The undo 
      * operation data builds down from the end of data[]. Thus the
      * sum of the operation sizes must be subtracted from the address of the
@@ -1688,7 +1670,6 @@ static nvm_trans_state nvm_get_state(nvm_transaction *tx)
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Attempt to generate undo without a transaction");
-    nvm_verify(tx, shapeof(nvm_transaction));
     if (nvm_get_state(tx) != nvm_active_state)
         nvms_assert_fail("Generating undo in transaction that is not active ");
 
@@ -1703,12 +1684,9 @@ static nvm_trans_state nvm_get_state(nvm_transaction *tx)
     while (cnt > 0)
     {
         /* If we cannot even get the smallest struct in this block, allocate 
-         * a new undo block. If some of this can be saved then verify the
-         * current undo block is valid. */
+         * a new undo block. */
         if (tx=>undo_bytes < sizeof(nvm_restore) + 8)
             nvm_add_undo(tx, td);
-        else
-            nvm_verify(tx=>undo, shapeof(nvm_undo_blk));
 
         /* decide how much we can store in the current block. */
         nvm_restore ^r;
@@ -1829,12 +1807,9 @@ nvm_lkrec ^nvm_add_lock_op@(
     if (!nvm_region_rng(td->region, mx, sizeof(mx)))
         nvms_assert_fail("Mutex being locked not in region");
 
-    /* If we cannot get the struct in this block, allocate a new undo block.
-     * Otherwise verify current undo block. */
+    /* If we cannot get the struct in this block, allocate a new undo block. */
     if (tx=>undo_bytes < sizeof(nvm_lkrec))
         nvm_add_undo(tx, td); // add a new empty undo block
-    else
-        nvm_verify(tx=>undo, shapeof(nvm_undo_blk));
 
     /* Get the address to store the data for the operation. */
     nvm_lkrec ^lk = (nvm_lkrec ^)
@@ -2018,7 +1993,6 @@ void ^nvm_onabort@(
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Generating on abort without a transaction");
-    nvm_verify(tx, shapeof(nvm_transaction));
     if (nvm_get_state(tx) != nvm_active_state)
         nvms_assert_fail("Generating on abort in non-active transaction");
 
@@ -2029,12 +2003,9 @@ void ^nvm_onabort@(
     if (size > sizeof(tx=>undo=>data) - sizeof(uint64_t))
         nvms_assert_fail("Arg for on abort operation too large");
 
-    /* If we cannot get the struct in this block, allocate a new undo block.
-     * Otherwise verify current undo block */
+    /* If we cannot get the struct in this block, allocate a new undo block. */
     if (tx=>undo_bytes < size)
         nvm_add_undo(tx, td); // add a new empty undo block
-    else
-        nvm_verify(tx=>undo, shapeof(nvm_undo_blk));
 
     /* Get the address to store the data for the operation. */
     nvm_on_abort ^oa = (nvm_on_abort ^)(tx=>undo_data - ((size + 7) & ~7));
@@ -2173,7 +2144,6 @@ void ^nvm_oncommit@(
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Generating on commit without a transaction");
-    nvm_verify(tx, shapeof(nvm_transaction));
     if (nvm_get_state(tx) != nvm_active_state)
         nvms_assert_fail("Generating on commit in non-active transaction");
 
@@ -2184,12 +2154,9 @@ void ^nvm_oncommit@(
     if (size > sizeof(tx=>undo=>data) - sizeof(uint64_t))
         nvms_assert_fail("Arg for on commit operation too large");
 
-    /* If we cannot get the struct in this block, allocate a new undo block.
-     * Otherwise verify current undo block. */
+    /* If we cannot get the struct in this block, allocate a new undo block. */
     if (tx=>undo_bytes < size)
         nvm_add_undo(tx, td); // add a new empty undo block
-    else
-        nvm_verify(tx=>undo, shapeof(nvm_undo_blk));
 
     /* Get the address to store the data for the operation. */
     nvm_on_commit ^oc = (nvm_on_commit ^)(tx=>undo_data - ((size + 7) & ~7));
@@ -2375,7 +2342,6 @@ void ^nvm_onunlock@(
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Generating on unlock without a transaction");
-    nvm_verify(tx, shapeof(nvm_transaction));
     if (nvm_get_state(tx) != nvm_active_state)
         nvms_assert_fail("Generating on unlock in non-active transaction");
 
@@ -2386,12 +2352,9 @@ void ^nvm_onunlock@(
     if (size > sizeof(tx=>undo=>data) - sizeof(uint64_t))
         nvms_assert_fail("Arg for on unlock operation too large");
 
-    /* If we cannot get the struct in this block, allocate a new undo block.
-     * Otherwise verify current undo block. */
+    /* If we cannot get the struct in this block, allocate a new undo block. */
     if (tx=>undo_bytes < size)
         nvm_add_undo(tx, td); // add a new empty undo block
-    else
-        nvm_verify(tx=>undo, shapeof(nvm_undo_blk));
 
     /* Get the address to store the data for the operation. */
     nvm_on_unlock ^ou = (nvm_on_unlock ^)(tx=>undo_data - ((size + 7) & ~7));
@@ -2578,7 +2541,6 @@ void nvm_commit@()
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Commit without a transaction");
-    nvm_verify(tx, shapeof(nvm_transaction));
 
     /* Make sure any updates done by the transaction are persistent before 
      * we start making any state changes. */
@@ -2711,7 +2673,6 @@ void nvm_commit@()
     /* Throw away all the undo back to stop. First throw away whole
      * blocks. */
     nvm_undo_blk ^ub = tx=>undo;
-    nvm_verify(ub, shapeof(nvm_undo_blk));
     while (ub && (tx=>undo_ops - ub=>count) >= stop)
     {
         /* reduce total undo_ops by the count in the block we are 
@@ -2732,9 +2693,6 @@ void nvm_commit@()
 
         /* get the next undo block to consider dropping */
         ub = tx=>undo;
-    
-        /* Verify this is a valid undo block */
-        nvm_verify(ub, shapeof(nvm_undo_blk));
 }
 
     /* If this is a nested transaction then throw away the undo up to the
@@ -2978,7 +2936,6 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
 {
     /* Apply until we get to stop or there is no undo at all */
     nvm_undo_blk ^ub = tx=>undo;
-    nvm_verify(ub, shapeof(nvm_undo_blk)); // verify undo block
     while (ub != 0)
     {
         /* If this undo block is empty remove it from the transaction. */
@@ -2989,7 +2946,6 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
             nvm_drop_undo(tx, ub, td);
             nvm_prep_undo(tx); // prepare for new undo block
             ub = tx=>undo;
-            nvm_verify(ub, shapeof(nvm_undo_blk)); // verify undo block
             continue;
         }
 
@@ -3410,7 +3366,6 @@ void nvm_abort@()
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Abort without a transaction");
-    nvm_verify(tx, shapeof(nvm_transaction));
 
     /* Decide how much undo needs to be applied, and set the transaction
      * to aborting. This is done differently for a base transaction vs.
@@ -3589,16 +3544,12 @@ void ^^nvm_savepoint@(
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Generating savepoint without a transaction");
-    nvm_verify(tx, shapeof(nvm_transaction));
     if (nvm_get_state(tx) != nvm_active_state)
         nvms_assert_fail("Generating savepoint in non-active transaction");
 
-    /* If we cannot get the struct in this block, allocate a new undo block.
-     * Otherwise verify current undo block. */
+    /* If we cannot get the struct in this block, allocate a new undo block. */
     if (tx=>undo_bytes < sizeof(nvm_savepnt))
         nvm_add_undo(tx, td); // add a new empty undo block
-    else
-        nvm_verify(tx=>undo, shapeof(nvm_undo_blk));
 
     /* Get the address to store the data for the operation. */
     nvm_savepnt ^sp = (nvm_savepnt ^)
@@ -3703,7 +3654,6 @@ int nvm_rollback@(
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Rolling back without a transaction");
-    nvm_verify(tx, shapeof(nvm_transaction));
     if (nvm_get_state(tx) != nvm_active_state)
         nvms_assert_fail("Rolling back in non-active transaction");
 
@@ -3959,7 +3909,6 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
     /* Get the current transaction's region */
     nvm_thread_data *td = nvm_get_thread_data();
     nvm_region ^rg = td->region;
-    nvm_verify(rg, shapeof(nvm_region));
 
     /* First save the new limits before adding the new tables. This means
      * that if the transaction table list is updated then we are sure that
@@ -3989,9 +3938,6 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
     nvm_transaction ^ptx = 0; // previous free transaction
     while (ftx)
     {
-        //        printf("ftx=%p ftx=>link=%p ptx=%p ptx=>link=%p\n",
-        //                 ftx, ftx=>link, ptx, ptx ? ptx=>link : NULL);
-        nvm_verify(ftx, shapeof(nvm_transaction));
         if (ftx=>slot > ctx=>txn_slots && ftx=>state == nvm_idle_state)
         {
             /* This transaction should be reserved. No undo is needed since
@@ -4024,13 +3970,11 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
     nvm_trans_table ^tt = htt; // loop variable
     while (tt)
     {
-        nvm_verify(tt, shapeof(nvm_trans_table));
         int t;
         for (t = 0; t < TRANS_TABLE_SLOTS; t++)
         {
             /* get the next transaction */
             nvm_transaction ^tx = %tt=>transactions[t];
-            nvm_verify(tx, shapeof(nvm_transaction));
 
             /* if reserved now but slot should be idle */
             if (tx=>slot <= ctx=>txn_slots && tx=>state == nvm_reserved_state)
@@ -4058,7 +4002,6 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
     {
         return;
     }
-    nvm_verify(att, shapeof(nvm_trans_table));
 
     /* Scan the list of transaction tables to see if this is already in the
      * list, and to find the end if it is not. */
@@ -4094,7 +4037,6 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
     tt = att;
     while (tt)
     {
-        nvm_verify(tt, shapeof(nvm_trans_table));
         int t;
         for (t = 0; t < TRANS_TABLE_SLOTS; t++)
         {
@@ -4102,7 +4044,6 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
              * previously set to either reserved or idle based on the 
              * maximum number of allowed transactions being configured. */
             nvm_transaction ^tx = %tt=>transactions[t];
-            nvm_verify(tx, shapeof(nvm_transaction));
             if (tx=>state == nvm_idle_state)
             {
                 /* put at head of freelist */
@@ -4130,7 +4071,6 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
     tt = att;
     while (tt)
     {
-        nvm_verify(tt, shapeof(nvm_trans_table));
         int u;
         for (u = 0; u < TRANS_TABLE_UNDO_BLKS; u++)
         {
@@ -4138,7 +4078,6 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
              * previously set to either reserved or idle based on the 
              * maximum number of allowed transactions being configured. */
             nvm_undo_blk ^ub = %tt=>undo_blks[u];
-            nvm_verify(ub, shapeof(nvm_undo_blk));
 
             /* put at head of freelist */
             ub=>link ~= ttd->free_undo;
@@ -4440,7 +4379,6 @@ int nvm_set_txconfig(
         uint32_t xcount = 0; // count of existing transaction tables
         while (tt)
         {
-            nvm_verify(tt, shapeof(nvm_trans_table));
             xcount++;
             tt = tt=>link;
         }
@@ -4873,7 +4811,6 @@ void nvm_txrecover(void *ctx)
     nvm_app_data *ad = nvm_get_app_data();
     nvm_thread_data *td = nvm_get_thread_data();
     nvm_transaction ^tx = (void^)ctx; // the transaction we are recovering
-    nvm_verify(tx, shapeof(nvm_transaction));
     nvm_trans_table_data *ttd = ad->regions[tx=>desc]->trans_table;
 
     /* Lock the dead list so we can scan it */
@@ -4890,7 +4827,6 @@ void nvm_txrecover(void *ctx)
             nvm_thread_fini();
             return;
         }
-        nvm_verify(ntx, shapeof(nvm_transaction));
         ltx = ntx;
         ntx = ntx=>link;
     }
@@ -5106,9 +5042,6 @@ void nvm_recover(nvm_desc desc)
     nvm_trans_table ^tt; // non-volatile transaction table loop variable
     for (tt = rg=>nvtt_list; tt; tt = tt=>link)
     {
-        /* verify the nvm_trans_table */
-        nvm_verify(tt, shapeof(nvm_trans_table));
-
         /* Look through all the transactions reinitializing them and linking
          * them to the correct nvm_trans_table_data list. This also unlinks
          * any empty undo blocks so that all empty blocks can be put on the
@@ -5118,14 +5051,12 @@ void nvm_recover(nvm_desc desc)
         {
             /* get and verify the next transaction */
             nvm_transaction ^tx = %tt=>transactions[t];
-            nvm_verify(tx, shapeof(nvm_transaction));
 
             /* If there are empty undo blocks associated with this transaction,
              * unlink them so they can be added to the free list. */
             nvm_undo_blk ^ub = tx=>undo;
             while (ub && ub=>count == 0)
             {
-                nvm_verify(ub, shapeof(nvm_undo_blk));
                 ub = ub=>link;
                 tx=>undo ~= ub;
             }
@@ -5197,15 +5128,11 @@ void nvm_recover(nvm_desc desc)
      * must be linked to a transaction that needs recovery. */
     for (tt = rg=>nvtt_list; tt; tt = tt=>link)
     {
-        /* verify the nvm_trans_table */
-        nvm_verify(tt, shapeof(nvm_trans_table));
-
         /* Loop through all the undo blocks making the empty ones free. */
         int u;
         for (u = 0; u < TRANS_TABLE_UNDO_BLKS; u++)
         {
             nvm_undo_blk ^ub = %tt=>undo_blks[u];
-            nvm_verify(ub, shapeof(nvm_undo_blk));
 
             /* Skip the undo blocks that have undo to apply. They will be 
              * released after recovery. */

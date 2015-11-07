@@ -567,7 +567,6 @@ int nvm_lock@(
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
         nvms_assert_fail("Attempt to lock NVM mutex without a transaction");
-    nvm_verify(tx, shapeof(nvm_transaction));
 
     /* verify the mutex is in the same region that owns the transaction */
     if (!nvm_region_rng(td->region, mutex, sizeof(nvm_amutex)))
