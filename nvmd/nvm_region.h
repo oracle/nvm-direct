@@ -328,7 +328,8 @@ extern "C"
      * 
      * @param[in] attach
      * This is the virtual address where the new region file will be mapped 
-     * into the process.
+     * into the process. A value of zero can be passed to let the OS choose
+     * an address.
      *
      * @param[in] vspace
      * This is the amount of virtual address space that the region will consume

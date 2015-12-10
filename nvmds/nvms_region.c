@@ -496,9 +496,9 @@ int nvms_lock_region(
  * to be mapped.
  * 
  * @return 
- * One if successful, or zero if there is an error.
+ * Address attached at if successful, or NULL if there is an error.
  */
-int nvms_map_region(
+void *nvms_map_region(
         nvms_file *fh,
         void *attach,
         size_t vspace,
@@ -514,20 +514,66 @@ int nvms_map_region(
         return 0;
     }
 
-    /* map in just the base extent. */
-    void *base = mmap(attach, pspace, PROT_READ | PROT_WRITE,
-            MAP_SHARED | MAP_FIXED, fh->osfd, 0);
+    /* Save vsize and attach before mmap to ensure it is valid if we close.
+     * Setting them first can result in an unnecessary munmap, unless we are
+     * letting the OS choose the virtual address. */
+    fh->vsize = vspace;
+    fh->attach = attach;
+
+    /* Map in the entire virtual address space to reserve it for this file.
+     * This makes the entire region mapped into the address space. However
+     * just the base extent will be accessible until nvms_map_range is called
+     * to make other extents accessible. */
+    int flags = attach ? MAP_SHARED | MAP_FIXED : MAP_SHARED;
+
+    uint8_t *base = mmap(attach, vspace, PROT_READ | PROT_WRITE,
+                flags, fh->osfd, 0);
     if (base == MAP_FAILED)
         return 0;
-    if (base != attach)
+    if (attach && base != attach)
         nvms_assert_fail("fixed mapping not fixed");
 
-    /* indicate it is mapped */
-    fh->attach = attach;
-    fh->vsize = vspace;
+    /* Only allow access to base extent for now. */
+    if (mprotect(base+pspace, vspace-pspace, PROT_NONE))
+        return 0;
 
-    return 1;
+    /* Save the real attach address in case attach was zero. Note that thread
+     * death between the mmap call and here could result in munmap not being
+     * called even though the mmap call succeeded. */
+    fh->attach = base;
+
+    return base;
 }
+
+/**
+ * Return the virtual address where a region file was mapped. NULL is
+ * returned if the region is not mapped, or if the file handle is bad.
+ * A bad file handle will set errno to EINVAL.
+ *
+ * @param[in] handle
+ * Open region file handle from open or create region.
+ *
+ * @return
+ * Address attached at if successful, or NULL if there is an error.
+ */
+void *nvms_region_addr(
+        nvms_file *handle
+        )
+{
+    /* make sure this is a valid handle */
+    int idx = handle->index;
+    if (idx < 0 || idx >= MAX_REGIONS || nvms_open_files[idx] != handle)
+    {
+        /* not a valid file handle */
+        errno = EINVAL;
+        return 0;
+    }
+
+    /* return the address */
+    errno = 0;
+    return handle->attach;
+}
+
 /**
  * This adds NVM to an open region file. This must be done before the
  * address range can be mapped into any application process. The NVM to
@@ -643,17 +689,25 @@ void *nvms_map_range(
         return 0;
     }
 
+#if 0 //make this true if mprotect alone does not make the memory available
     /* map in the range */
     if (mmap(fh->attach + offset, len, PROT_READ | PROT_WRITE,
         MAP_SHARED | MAP_FIXED, fh->osfd, (off_t)offset) == MAP_FAILED)
         return 0; // failed
+#else
+    /* Since the entire virtual address space of the region was mapped at
+     * attach, all that is needed now is to allow access to the extent. */
+    if (mprotect(fh->attach + offset, len, PROT_READ | PROT_WRITE))
+        return 0; // failed
+#endif
 
     return fh->attach + offset;
 }
 /**
  * This unmaps a range of NVM from the current process. The address range
  * must be within the vspace parameter passed to nvms_create_region. It is
- * not an error to unmap a range that is not mapped.
+ * not an error to unmap a range that is not mapped. This does not make
+ * the virtual address space available for other region mappings.
  * 
  * @param handle
  * Open region file handle from open or create region.
@@ -690,12 +744,53 @@ void *nvms_unmap_range(
         return 0;
     }
 
-    /* unmap the range */
-    if (munmap(fh->attach + offset, len))
+    /* Disallow access to the range so space cannot be reallocated by a
+     * wild store. */
+    if (mprotect(fh->attach + offset, len, PROT_NONE))
         return 0; // failed
 
     return fh->attach + offset;
 }
+
+/**
+ * This unmaps the entire region from the current process. The virtual
+ * address range allocated to the region becomes available for other
+ * regions. It is not an error to unmap a region that is not mapped.
+ *
+ * @param handle
+ * Open region file handle from open or create region.
+ *
+ * @return
+ * If successful one. Zero if there is an error.
+ */
+int nvms_unmap_region(
+    nvms_file *fh
+    )
+{
+    /* make sure this is a valid handle */
+    int idx = fh->index;
+    if (idx < 0 || idx >= MAX_REGIONS || nvms_open_files[idx] != fh)
+    {
+        /* not a valid file handle */
+        errno = EINVAL;
+        return 0;
+    }
+
+    /* return success if already unmapped */
+    if (!fh->attach)
+        return 1;
+
+    /* unmap the region */
+    if (munmap(fh->attach, fh->vsize))
+        return 0; // failed
+
+    /* no longer mapped */
+    fh->attach = 0;
+    fh->vsize = 0;
+
+    return 1;
+}
+
 /**
  * This frees NVM from an open region file. The address range must not be
  * mapped into any application process when this is called.

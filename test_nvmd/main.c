@@ -63,7 +63,9 @@ SOFTWARE.
  */
 
 /* The virtual address to attach the main region at */
-#define attch ((uint8_t*)(1024 * 1024 * 1024 * 128LL))
+//#define attch_int (1024 * 1024 * 1024 * 128LL) //fixed mapping
+#define attch_int (0) // Let OS choose
+#define attch ((uint8_t*)attch_int)
 
 /* The virtual address space consumed by the main region */
 const size_t vspace = 1024 * 1024 * 1024;
@@ -84,7 +86,11 @@ const size_t xoff = 128 * 1024 * 1024;
 const size_t logspace = 2*1024*1024;
 
 /* the virtual address of log region 0 */
+#if attch_int
 #define logbase (attch + 2*vspace)
+#else
+#define logbase ((uint8_t*)0) // Let OS choose
+#endif
 
 /* the number of log records in a log region */
 #define logsz  1024
@@ -457,7 +463,7 @@ struct counts
 };
 
 /* last stat from the main region */
-nvm_region_stat stat;
+nvm_region_stat tstat;
 
 /*
  * Attach to the log region file for a thread. The region file is created if
@@ -471,7 +477,7 @@ void attach_log(struct counts *cnts)
     sprintf(fname, "/tmp/nvmd%d", cnts->thread);
 
     /* Attempt to attach to an existing log */
-    uint8_t *base = logbase+logspace*cnts->thread;
+    uint8_t *base = logbase ? logbase+logspace*cnts->thread : 0;
     nvm_desc desc = nvm_attach_region(0, fname, base);
     if (desc == 0)
     {
@@ -513,7 +519,7 @@ void attach_log(struct counts *cnts)
     sprintf(fname, "/tmp/nvmd%d", cnts->thread);
 
     /* Attempt to attach to an existing log */
-    uint8_t *base = logbase+logspace*cnts->thread;
+    uint8_t *base = logbase ? logbase+logspace*cnts->thread : 0;
     nvm_desc desc = nvm_attach_region(0, fname, base);
     if (desc == 0)
     {
@@ -623,8 +629,8 @@ void write_log(struct counts *cnts, int slot, uint32_t oldsz, uint32_t newsz)
 #ifdef NVM_EXT
 void alloc1(struct counts *cnts)
 {
-    root ^rs = (root ^)stat.rootobject;
-    nvm_desc desc = stat.desc;
+    root ^rs = (root ^)tstat.rootobject;
+    nvm_desc desc = tstat.desc;
     nvm_heap ^heap = rs=>heap;
 
     /* pick a slot and size to use */
@@ -706,8 +712,8 @@ void alloc1(struct counts *cnts)
 #else
 void alloc1(struct counts *cnts)
 {
-    root *rs = (root *)stat.rootobject;
-    nvm_desc desc = stat.desc;
+    root *rs = (root *)tstat.rootobject;
+    nvm_desc desc = tstat.desc;
     nvm_heap *heap = nvm_heap_get(&rs->heap);
 
     /* pick a slot and size to use */
@@ -890,6 +896,7 @@ main(int argc, char** argv)
     /* If attaching the region does not work then create a new one. This will
      * run recovery if needed. */
     nvm_desc desc = nvm_attach_region(0, fname, attch);
+    uint8_t *base; // address of base extent
     int success;
     int created = 0;
     root ^rs;
@@ -907,10 +914,11 @@ main(int argc, char** argv)
             exit(1);
         }
 
-        /* Get the root heap */
-        success = nvm_query_region(desc, &stat);
-        nvm_heap ^rh = (nvm_heap ^)stat.rootheap;
+        /* Get the root heap and base extent */
+        success = nvm_query_region(desc, &tstat);
+        nvm_heap ^rh = (nvm_heap ^)tstat.rootheap;
         nvm_heap_test(desc, rh);
+        base = tstat.base;
 
         /* Allocate a root struct in a transaction */
         @ desc {
@@ -926,9 +934,10 @@ main(int argc, char** argv)
     }
     else
     {
-        /* Get the root struct */
-        success = nvm_query_region(desc, &stat);
-        rs = stat.rootobject;
+        /* Get the root struct and base extent */
+        success = nvm_query_region(desc, &tstat);
+        base = tstat.base;
+        rs = tstat.rootobject;
         printf("Attached existing region\n");
     }
 
@@ -939,7 +948,7 @@ main(int argc, char** argv)
     {
         /* add an application managed extent to the region */
         @desc{
-            void ^ext = (void ^)nvm_add_extent(attch + xoff, ptrspace);
+            void ^ext = (void ^)nvm_add_extent(base + xoff, ptrspace);
             if (ext == (void^)0)
             {
                 perror("Add extent failed");
@@ -975,7 +984,7 @@ main(int argc, char** argv)
     {
         @desc{
             /* add a heap managed extent to the region */
-            nvm_heap ^heap = nvm_create_heap(desc, attch + 2 * xoff, pspace,
+            nvm_heap ^heap = nvm_create_heap(desc, base + 2 * xoff, pspace,
                     "heap extent");
             rs=>heap @= heap;
             if (heap == 0)
@@ -1021,20 +1030,20 @@ main(int argc, char** argv)
         perror("Detach failed\n");
         exit(1);
     }
-    desc = nvm_attach_region(2, fname, attch + vspace);
+    desc = nvm_attach_region(2, fname, (attch ? attch + vspace : 0));
     if (!success)
     {
         perror("Attach failed\n");
         exit(1);
     }
 
-    success = nvm_query_region(desc, &stat);
+    success = nvm_query_region(desc, &tstat);
     if (!success)
     {
         perror("Query region failed\n");
         exit(1);
     }
-    rs = stat.rootobject;
+    rs = tstat.rootobject;
     branch ^^ptr = rs=>ptr;
 
     /* grow the pointer extent just for fun */
@@ -1250,6 +1259,7 @@ main(int argc, char** argv)
     /* If attaching the region does not work then create a new one. This will
      * run recovery if needed. */
     nvm_desc desc = nvm_attach_region(0, fname, attch);
+    uint8_t *base; // address of base extent
     int success;
     int created = 0;
     root *rs;
@@ -1267,10 +1277,11 @@ main(int argc, char** argv)
             exit(1);
         }
 
-        /* Get the root heap */
-        success = nvm_query_region(desc, &stat);
-        nvm_heap *rh = stat.rootheap;
+        /* Get the root heap and base extent */
+        success = nvm_query_region(desc, &tstat);
+        nvm_heap *rh = tstat.rootheap;
         nvm_heap_test(desc, rh);
+        base = tstat.base;
 
         /* Allocate a root struct in a transaction */
         nvm_txbegin(desc);
@@ -1287,9 +1298,10 @@ main(int argc, char** argv)
     }
     else
     {
-        /* Get the root heap and root struct */
-        success = nvm_query_region(desc, &stat);
-        rs = stat.rootobject;
+        /* Get the root struct and base extent */
+        success = nvm_query_region(desc, &tstat);
+        rs = tstat.rootobject;
+        base = tstat.base;
         printf("Attached existing region\n");
     }
 
@@ -1300,7 +1312,7 @@ main(int argc, char** argv)
     {
         /* add an application managed extent to the region */
         nvm_txbegin(desc);
-        void *ext = nvm_add_extent(attch + xoff, ptrspace);
+        void *ext = nvm_add_extent(base + xoff, ptrspace);
         if (ext == NULL)
         {
             perror("Add extent failed");
@@ -1340,7 +1352,7 @@ main(int argc, char** argv)
         nvm_txbegin(desc);
         {
             /* add a heap managed extent to the region */
-            nvm_heap *heap = nvm_create_heap(desc, attch + 2 * xoff, pspace,
+            nvm_heap *heap = nvm_create_heap(desc, base + 2 * xoff, pspace,
                     "heap extent");
             nvm_heap_txset(&rs->heap, heap);
             if (heap == NULL)
@@ -1387,20 +1399,20 @@ main(int argc, char** argv)
         perror("Detach failed\n");
         exit(1);
     }
-    desc = nvm_attach_region(2, fname, attch + vspace);
+    desc = nvm_attach_region(2, fname, (attch ? attch + vspace : 0));
     if (!desc)
     {
         perror("Reattach failed\n");
         exit(1);
     }
 
-    success = nvm_query_region(desc, &stat);
+    success = nvm_query_region(desc, &tstat);
     if (!success)
     {
         perror("Query region failed\n");
         exit(1);
     }
-    rs = stat.rootobject;
+    rs = tstat.rootobject;
     branch_srp *ptr = branchArray_get(&rs->ptr);
 
     /* grow the pointer extent just for fun */

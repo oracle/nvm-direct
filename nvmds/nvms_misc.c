@@ -87,7 +87,7 @@ void nvms_get_params(nvms_parameters *params)
     params->usid_map_size = 1024;
     params->wait_buckets = 1024;
     params->max_nvm_wait = 4;
-    params->extent_align = 1024 * 1024;
+    params->extent_align = 4 * 1024;
     params->upgrade_mutexes = 1024;
 }
 /**

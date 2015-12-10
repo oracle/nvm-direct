@@ -261,14 +261,29 @@ extern "C"
      * to be mapped.
      * 
      * @return 
-     * One if successful, or zero if there is an error.
+     * Address attached at if successful, or NULL if there is an error.
      */
-    int nvms_map_region(
+    void *nvms_map_region(
         nvms_file *handle,
         void *attach,
         size_t vspace,
         size_t pspace
         );
+
+    /**
+     * Return the virtual address where a region file was mapped. NULL is
+     * returned if the region is not mapped, or if the file handle is bad.
+     * A bad file handle will set errno to EINVAL.
+     *
+     * @param[in] handle
+     * Open region file handle from open or create region.
+     *
+     * @return
+     * Address attached at if successful, or NULL if there is an error.
+     */
+    void *nvms_region_addr(
+            nvms_file *handle
+            );
 
     /**
      * This adds NVM to an open region file. This must be done before the
@@ -352,7 +367,8 @@ extern "C"
     /**
      * This unmaps a range of NVM from the current process. The address range
      * must be within the vspace parameter passed to nvms_create_region. It is
-     * not an error to unmap a range that is not mapped.
+     * not an error to unmap a range that is not mapped. This does not make
+     * the virtual address space available for other region mappings.
      * 
      * @param handle
      * Open region file handle from open or create region.
@@ -370,6 +386,21 @@ extern "C"
         nvms_file *handle,
         size_t offset,
         size_t len
+        );
+
+    /**
+     * This unmaps the entire region from the current process. The virtual
+     * address range allocated to the region becomes available for other
+     * regions. It is not an error to unmap a region that is not mapped.
+     *
+     * @param handle
+     * Open region file handle from open or create region.
+     *
+     * @return
+     * If successful one. Zero if there is an error.
+     */
+    int nvms_unmap_region(
+        nvms_file *handle
         );
 
     /**

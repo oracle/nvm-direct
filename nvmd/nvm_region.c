@@ -198,7 +198,8 @@ inline static int nvm_addr_align(void *adr)
  * 
  * @param[in] attach
  * This is the virtual address where the new region file will be mapped 
- * into the process.
+ * into the process. A value of zero can be passed to let the OS choose
+ * an address.
  *
  * @param[in] vspace
  * This is the amount of virtual address space that the region will consume
@@ -271,7 +272,7 @@ nvm_desc nvm_create_region(//#
 {
     /* Return an error if attach address is zero or misaligned. Also verify
      * alignment of sizes. */
-    if (attach == 0 || !nvm_addr_align((void^)attach) ||
+    if (!nvm_addr_align((void^)attach) ||
         !nvm_align_check(vspace) || !nvm_align_check(pspace))
     {
         errno = EINVAL;
@@ -343,7 +344,7 @@ nvm_desc nvm_create_region(//#
 
     /* Initialize the nvm_region header. Note that there is no undo for this
      * since transactions are not supported yet. */
-    nvm_region ^region = (nvm_region^)attach;
+    nvm_region ^region = (nvm_region^)nvms_region_addr(handle);
 
     /* set the persistent region name. */
     strncpy((char*)region=>header.name, regionname, 
@@ -398,7 +399,7 @@ nvm_desc nvm_create_region(//#
     return desc;
 }
 #else
-nvm_desc nvm_create_region(//#
+nvm_desc nvm_create_region(
         nvm_desc desc,
         const char *pathname,
         const char *regionname,
@@ -410,9 +411,9 @@ nvm_desc nvm_create_region(//#
 {
     nvm_region_sizeof_check();
 
-    /* Return an error if attach address is zero or misaligned. Also verify
+    /* Return an error if attach address is misaligned. Also verify
      * alignment of sizes. */
-    if (attach == 0 || !nvm_addr_align(attach) ||
+    if (!nvm_addr_align(attach) ||
         !nvm_align_check(vspace) || !nvm_align_check(pspace))
     {
         errno = EINVAL;
@@ -485,7 +486,7 @@ nvm_desc nvm_create_region(//#
     /* Initialize the nvm_region header. Note that there is no undo for this
      * since transactions are not supported yet. */
     nvm_region *region;    
-    region = attach;
+    region = nvms_region_addr(handle);
 
     /* set the persistent region name. We will flush later. */
     strncpy(region->header.name, regionname,    
@@ -860,8 +861,8 @@ nvm_desc nvm_attach_region(
         void *attach
         )
 {
-    /* Return an error if attach address is zero. */
-    if (attach == 0 || !nvm_addr_align((void^)attach))
+    /* Return an error if attach address is not aligned. */
+    if (!nvm_addr_align((void^)attach))
     {
         errno = EINVAL;
         return 0;
@@ -916,8 +917,8 @@ nvm_desc nvm_attach_region(
 {
     nvm_region_sizeof_check();
 
-    /* Return an error if attach address is zero. */
-    if (attach == 0 || !nvm_addr_align(attach))
+    /* Return an error if attach address is not aligned. */
+    if (!nvm_addr_align(attach))
     {
         errno = EINVAL;
         return 0;
@@ -3077,7 +3078,6 @@ nvm_desc nvm_map_region(
         return 0;
     }
     rd->attach_id = nvms_unique_id();
-    rd->region = (nvm_region^)attach;
     rd->desc = desc;
     rd->vsize = init.header.vsize;
     rd->psize = init.header.psize;
@@ -3130,6 +3130,9 @@ nvm_desc nvm_map_region(
         return 0;
     }
 
+    /* Successfully mapped base extent. */
+    rd->region = (nvm_region^)nvms_region_addr(handle);
+
     /* Increment attach count so that the application can recognize stale
      * transient data. */
     nvm_region ^rg = rd->region;
@@ -3157,7 +3160,7 @@ nvm_desc nvm_map_region(
             /* Return mapping error to caller after unmapping anything that
              * was mapped in and freeing all allocations. */
             int serr = errno;
-            nvms_unmap_range(rd->handle, 0, rd->vsize); // unmap all
+            nvms_unmap_region(handle); // unmap all
             nvms_destroy_mutex(rd->mutex);
             nvms_app_free(rd->pathname);
             nvms_app_free(rd);
@@ -3272,7 +3275,6 @@ nvm_desc nvm_map_region(
         return 0;
     }
     rd->attach_id = nvms_unique_id();
-    rd->region = attach;
     rd->desc = desc;
     rd->vsize = init.header.vsize;
     rd->psize = init.header.psize;
@@ -3325,6 +3327,9 @@ nvm_desc nvm_map_region(
         return 0;
     }
 
+    /* Successfully mapped base extent. */
+    rd->region = (nvm_region*)nvms_region_addr(handle);
+
     /* Increment attach count so that the application can recognize stale
      * transient data. */
     nvm_region *rg = rd->region;
@@ -3354,7 +3359,7 @@ nvm_desc nvm_map_region(
             /* Return mapping error to caller after unmapping anything that
              * was mapped in and freeing all allocations. */
             int serr = errno;
-            nvms_unmap_range(rd->handle, 0, rd->vsize); // unmap all
+            nvms_unmap_region(handle); // unmap all
             nvms_destroy_mutex(rd->mutex);
             nvms_app_free(rd->pathname);
             nvms_app_free(rd);
@@ -3412,7 +3417,7 @@ void nvm_unmap_region(nvm_desc desc)
     nvms_unlock_mutex(ad->mutex);
 
     /* Remove the region file from this process's address space */
-    if (!nvms_unmap_range(rd->handle, (size_t)0, rd->vsize))
+    if (!nvms_unmap_region(rd->handle))
         nvms_assert_fail("Error unmapping a region file");
 
     /* Release the pathname  */
