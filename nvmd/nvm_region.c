@@ -559,6 +559,9 @@ nvm_desc nvm_create_region(
  * committed before this is called. There may not be any active 
  * transactions in the region when this is called.
  * 
+ * The root object must have a USID defined for it so that attach can
+ * validate the region can be understood by the attaching region.
+ *
  * If there are any errors then errno is set and the return value is zero.
  * 
  * @param[in] desc
@@ -611,6 +614,21 @@ int nvm_set_root_object(
         errno = EINVAL;
         return 0;
     }
+
+    /* Verify the root object contains a USID that this application
+     * understands. */
+    nvm_usid ru = ^(nvm_usid^)rootobj;
+    if (!nvm_usid_find(ru))
+    {
+        errno = EINVAL;
+        return 0;
+    }
+
+    /* Persistently store the root USID before setting the root pointer. This
+     * insures there is always a valid root USID if there is a root pointer */
+    region=>header.rootUSID ~= ru;
+    nvm_flush(%region=>header.rootUSID, sizeof(nvm_usid));
+    nvm_persist();
 
     /* Verify that the region has not already been made valid by setting a
      * root object. Note that creation sets an absolute value of zero in
@@ -680,6 +698,21 @@ int nvm_set_root_object(
         return 0;
     }
 
+    /* Verify the root object contains a USID that this application
+     * understands. */
+    nvm_usid ru = *(nvm_usid*)rootobj;
+    if (!nvm_usid_find(ru))
+    {
+        errno = EINVAL;
+        return 0;
+    }
+
+    /* Persistently store the root USID before setting the root pointer. This
+     * insures there is always a valid root USID if there is a root pointer */
+    region->header.rootUSID = ru;
+    nvm_flush(&region->header.rootUSID, sizeof(nvm_usid));
+    nvm_persist();
+
     /* Persistently store the new root object, then make the region valid
      * for attaching. This is not done in a transaction because we do not 
      * want recovery to make a valid region become invalid by rolling back
@@ -706,6 +739,9 @@ int nvm_set_root_object(
  * 
  * This operates on the region of the current transaction
  * 
+ * The root object must have a USID defined for it so that attach can
+ * validate the region can be understood by the attaching region.
+ *
  * If there are any errors then errno is set and the return value is zero.
  * 
  * @param[in] rootobj
@@ -737,6 +773,19 @@ void ^nvm_new_root_object@(
         errno = EINVAL;
         return 0;
     }
+
+    /* Verify the root object contains a USID that this application
+     * understands. */
+    nvm_usid ru = ^(nvm_usid^)rootobj;
+    if (!nvm_usid_find(ru))
+    {
+        errno = EINVAL;
+        return 0;
+    }
+
+    /* Transactionally store the root USID with setting the root pointer. This
+     * insures there is always a valid root USID if there is a root pointer */
+    region=>header.rootUSID @= ru;
 
     /* get the current root object for the return value */
     void ^old = region=>header.rootObject;
@@ -770,6 +819,21 @@ void *nvm_new_root_object(
         errno = EINVAL;
         return 0;
     }
+
+    /* Verify the new root object contains a USID that this application
+     * understands. */
+    nvm_usid ru = *(nvm_usid*)rootobj;
+    if (!nvm_usid_find(ru))
+    {
+        errno = EINVAL;
+        return 0;
+    }
+
+    /* Transactionally store the root USID with setting the root pointer. This
+     * insures there is always a valid root USID if there is a root pointer */
+    nvm_undo(&region->header.rootUSID, sizeof(nvm_usid));
+    region->header.rootUSID = ru;
+    nvm_flush(&region->header.rootUSID, sizeof(nvm_usid));
 
     /* get the current root object for the return value */
     void *old = void_get(&region->header.rootObject);
@@ -3017,8 +3081,9 @@ nvm_desc nvm_map_region(
         return 0;
     }
 
-    /* If this is creation, then the root object pointer must be zero,
-     * otherwise it must be set. */
+    /* If this is creation, then the root object pointer must be null,
+     * otherwise it must be set to a struct with a type USID that this
+     * application understands. */
     if (create)
     {
         if (init.header.rootObject)
@@ -3029,7 +3094,7 @@ nvm_desc nvm_map_region(
     }
     else
     {
-        if (!init.header.rootObject)
+        if (!init.header.rootObject || !nvm_usid_find(init.header.rootUSID))
         {
             errno = EBADF;
             return 0;
@@ -3215,7 +3280,8 @@ nvm_desc nvm_map_region(
     }
 
     /* If this is creation, then the root object pointer must be null,
-     * otherwise it must be set. */
+     * otherwise it must be set to a struct with a type USID that this
+     * application understands. */
     if (create)
     {
         if (init.header.rootObject)
@@ -3226,7 +3292,7 @@ nvm_desc nvm_map_region(
     }
     else
     {
-        if (!init.header.rootObject)
+        if (!init.header.rootObject || !nvm_usid_find(init.header.rootUSID))
         {
             errno = EBADF;
             return 0;

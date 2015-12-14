@@ -180,8 +180,8 @@ typedef struct {
     void (*const upgrade)();
     const nvm_type *const uptype;
     const size_t field_cnt;
-    const nvm_field field[18];
-} nvm_type17;
+    const nvm_field field[16];
+} nvm_type15;
 typedef struct {
     const nvm_usid usid;
     const char *const name;
@@ -198,7 +198,7 @@ typedef struct {
 
 /* an extern definition for each nvm_type */
 extern const nvm_type3 nvm_type_nvm_extent;
-extern const nvm_type17 nvm_type_nvm_region;
+extern const nvm_type15 nvm_type_nvm_region;
 extern const nvm_type5 nvm_type_nvm_trans_table;
 extern const nvm_type16 nvm_type_nvm_heap;
 extern const nvm_type5 nvm_type_nvm_amutex;
@@ -233,7 +233,7 @@ const nvm_type3 nvm_type_nvm_extent = {
  * type definition of nvm_region_header. This is needed because it is
  * a non-persistent struct that appears in a persistent struct.
  */
-const nvm_type3 nvm_type_nvm_region_header = {
+const nvm_type6 nvm_type_nvm_region_header = {
     {0, 0}, // type_usid
     "nvm_region_header", // name
     0, //tag
@@ -243,11 +243,14 @@ const nvm_type3 nvm_type_nvm_region_header = {
     8, // align
     0, // upgrade
     0, // uptype
-    3, // field_cnt
+    7, // field_cnt
     { // fields[] 
         {nvm_field_unsigned, 0, 1, (void*)64, "vsize"},
         {nvm_field_unsigned, 0, 1, (void*)64, "psize"},
         {nvm_field_char, 0, 64, (void*)8, "name"},
+        {nvm_field_usid, 0, 1, (void*)nvm_usid_struct, "rootUSID"},
+        {nvm_field_pointer,  0, 1, NULL, "rootObject"},
+        {nvm_field_unsigned, 0, 1, (void*)64, "attach_id"},
         {0, 0, 0, 0, 0} // end
     }
 };
@@ -256,21 +259,20 @@ const nvm_type3 nvm_type_nvm_region_header = {
 /*
  *  type definition of nvm_region 
  */
-const nvm_type17 nvm_type_nvm_region = {
-    { 0xeeae207b78917578LL, 0xd7aeb6aa1294c9a6LL}, // type_usid
+const nvm_type15 nvm_type_nvm_region = {
+    { 0xeeae207b78917578LL, 0xd7aeb6aa1294d9a6LL}, // type_usid
     "nvm_region", // name
-    "An NVM library managed region begins with an nvm_region", // tag
+    "An NVM Direct managed region begins with an nvm_region", // tag
     1024, // size
     0, // xsize
     0, // version
     16, // align
     0, // upgrade
     0, // uptype
-    17, // field_cnt
+    16, // field_cnt
     { // fields[] 
         {nvm_field_usid, 0, 1, (void*)nvm_usid_self, "type_usid"},
         {nvm_field_struct, 0, 1, &nvm_type_nvm_region_header, "header"},
-        {nvm_field_unsigned, 0, 1, (void*)64, "attach_id"},
         {nvm_field_unsigned, 0, 1, (void*)64, "attach_cnt"},
         {nvm_field_unsigned, 0, 1, (void*)64, "spare"},
         {nvm_field_struct_ptr, 0, 1, &nvm_type_nvm_extent, "extents"},
@@ -280,12 +282,11 @@ const nvm_type17 nvm_type_nvm_region = {
         {nvm_field_unsigned, 0, 1, (void*)32, "max_transactions"},
         {nvm_field_unsigned, 0, 1, (void*)32, "max_undo_blocks"},
         {nvm_field_struct_ptr, 0, 1, &nvm_type_nvm_heap, "rootHeap"},
-        {nvm_field_pointer, 0, 1, NULL, "rootObject"},
         {nvm_field_unsigned, 0, 1, (void*)64, "reg_mutex"},
         {nvm_field_struct_ptr, 0, 1, &nvm_type_nvm_mutex_array,
                 "upgrade_mutexes"},
         {nvm_field_unsigned, 1, 1, (void*)32, "desc"},
-        {nvm_field_pad, 0, 1024 - 188, (void*)8, "_padding_to_1024"},
+        {nvm_field_pad, 0, 1024 - 204, (void*)8, "_padding_to_1024"},
         {0, 0, 0, 0, 0} // end
     }
 };

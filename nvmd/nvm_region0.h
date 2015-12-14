@@ -166,6 +166,14 @@ extern "C"
         char name[64];
 
         /**
+         * This is the USID of the root object. It is used to ensure the
+         * region was initialized by an application that is compatible with
+         * the attaching application. It is a bad file error to attach a
+         * region to an application that cannot understand the root object.
+         */
+        nvm_usid rootUSID;
+
+        /**
          * This is the pointer to the root object. The application knows
          * what type this really is. The root object leads to all the
          * application data. A region file cannot be attached unless the
@@ -224,7 +232,7 @@ extern "C"
      */
 #ifdef NVM_EXT
     persistent struct nvm_region
-    USID("eeae 207b 7891 7578 d7ae b6aa 1294 c9a6")
+    USID("eeae 207b 7891 7578 d7ae b6aa 1294 d9a6")
     tag("An NVM library managed region begins with an nvm_region")
     version(0)
     size(1024)
@@ -339,7 +347,7 @@ extern "C"
         /*
          * Leave some padding for growth. Assumes nvm_mutex is 8 bytes
          */
-        uint8_t _padding_to_1024[1024 - 188];
+        uint8_t _padding_to_1024[1024 - 204];
     };
 #else
     struct nvm_region
@@ -453,7 +461,7 @@ extern "C"
         /*
          * Leave some padding for growth. Assumes nvm_mutex is 8 bytes
          */
-        uint8_t _padding_to_1024[1024 - 188];
+        uint8_t _padding_to_1024[1024 - 204];
     };
     extern const nvm_type nvm_type_nvm_region;
 #endif //NVM_EXT

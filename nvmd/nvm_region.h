@@ -422,6 +422,9 @@ extern "C"
      * committed before this is called. There may not be any active 
      * transactions in the region when this is called.
      * 
+     * The root object must have a USID defined for it so that attach can
+     * validate the region can be understood by the attaching region.
+     *
      * If there are any errors then errno is set and the return value is zero.
      * 
      * @param[in] desc
@@ -460,6 +463,9 @@ extern "C"
      * 
      * This operates on the region of the current transaction
      * 
+     * The root object must have a USID defined for it so that attach can
+     * validate the region can be understood by the attaching region.
+     *
      * If there are any errors then errno is set and the return value is zero.
      * 
      * @param[in] rootobj
