@@ -459,7 +459,7 @@ struct counts
     int fail_cnt;     // number of failed allocations
     size_t free;      // total bytes freed
     int free_cnt;     // number of calls to nvm_free
-    nvm_jmp_buf env;  // jump buf to exit early
+    jmp_buf env;      // jump buf to exit early
 };
 
 /* last stat from the main region */
@@ -624,7 +624,7 @@ void write_log(struct counts *cnts, int slot, uint32_t oldsz, uint32_t newsz)
  * Each call writes one pretend log record in the threads log region. This
  * is done in an off region nested transaction.
  *
- * Occasionally this will exit the thread early with an nvm_longjmp.
+ * Occasionally this will exit the thread early with a longjmp.
  */
 #ifdef NVM_EXT
 void alloc1(struct counts *cnts)
@@ -705,7 +705,7 @@ void alloc1(struct counts *cnts)
         /* Occasionally long jump out before being done. */
         if (random() % (longjump) == 42)
         {
-            nvm_longjmp(&cnts->env, 42);
+            longjmp(cnts->env, 42);
         }
     }
 }
@@ -789,7 +789,7 @@ void alloc1(struct counts *cnts)
     /* Occasionally long jump out before being done. */
     if (random() % (longjump) == 42)
     {
-        nvm_longjmp(&cnts->env, 42);
+        longjmp(cnts->env, 42);
     }
 
     nvm_txend(); //commit base transaction releasing the slot lock
@@ -817,7 +817,8 @@ void *thread_func(void *ctx)
     
     /* create a jmp_buf for early exit of a thread. On a long jump  
      * return to exit this thread. */
-    if (nvm_setjmp(&cnts->env)) 
+    nvm_jump_ctx jctx;
+    if (nvm_set_jump(cnts->env, jctx))
     {
         goto end_thread;
     }

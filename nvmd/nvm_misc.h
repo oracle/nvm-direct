@@ -94,6 +94,14 @@ extern "C"
     };
     typedef struct nvm_jmp_buf nvm_jmp_buf;
 
+    /**
+     * This is a context needed by nvm_set_jump to abort transactions that a
+     * longjmp is exiting. A local variable of this type should be allocated
+     * in the routine doing the nvm_set_jump and given as an argument to
+     * nvm_set_jump.
+     */
+    typedef int nvm_jump_ctx[2];
+
     /* EXPORT FUNCTIONS */
 
     /**\brief Initialize a thread to use the NVM library.
@@ -228,7 +236,30 @@ extern "C"
         );
 #endif //NVM_EXT
     
-    extern int nvm_txdepth();
+    /**
+     * This works like a standard setjmp except that it aborts any transactions
+     * that are jumped out of. A normal longjmp is used to jump to here.
+     *
+     * @param[out] env
+     * This is a standard jmpbuf to be passed to the standard setjmp
+     *
+     * @param[in/out] ctx
+     * This is a local variable of type nvm_jump_ctx that is used for storage
+     */
+#define nvm_set_jump(env, ctx) (((ctx[0] = nvm_txdepth()), \
+        (ctx[1] = setjmp(env)) ? (nvm_txrestore(ctx[0]), ctx[1]) : 0))
+
+    /**
+     * This ends transactions until a particular transaction depth is restored
+     * as the current transaction. This may result in no transaction at all
+     * being current. This is used by nvm_set_jump to abort transactions that
+     * have been exited via longjmp.
+     *
+     * param[in] old_depth
+     * This is the transaction depth that needs to be restored to. It must be
+     * less than or equal to the current depth.
+     */
+    void nvm_txrestore(int old_depth);
 
     /**
      * This works just like a standard setjmp except that it preserves the 
@@ -256,17 +287,10 @@ extern "C"
      * @param[in] val
      * This is the non-zero value that nvm_setjmp will return
      */
-#ifdef NVM_EXT
     void nvm_longjmp(
         nvm_jmp_buf *buf, // jmp_buf equivalent
         int val // setjmp return value
         );
-#else
-    void nvm_longjmp(
-        nvm_jmp_buf *buf, // jmp_buf equivalent
-        int val // setjmp return value
-        );
-#endif //NVM_EXT
 
     /**
      * This copies data into NVM from either NVM or volatile memory. It works

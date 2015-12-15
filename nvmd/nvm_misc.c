@@ -554,6 +554,73 @@ void nvm_persist1(
     td->persist_cnt++;
     td->persist1_cnt++;
 }
+
+/**
+ * This ends transactions until a particular transaction depth is restored
+ * as the current transaction. This may result in no transaction at all
+ * being current. This is used by nvm_set_jump to abort transactions that
+ * have been exited via longjmp.
+ *
+ * param[in] old_depth
+ * This is the transaction depth that needs to be restored to. It must be
+ * less than or equal to the current depth.
+ */
+void nvm_txrestore(int old_depth)
+{
+    int depth = nvm_txdepth();
+
+    /* If current depth is shallower than the nvm_jmpbuf, then it is not on
+     * our stack. */
+    if (depth < old_depth || old_depth < 0)
+    {
+        errno = EINVAL;
+        nvms_assert_fail("Bad nvm_jmp_buf for longjmp");
+    }
+
+    /* Abort and end transactions until we are at the old depth. */
+    while (depth > old_depth)
+    {
+#ifdef NVM_EXT
+    extern @ { // depth is > 0 so there is a current transaction
+#endif //NVM_EXT
+       switch (nvm_txstatus(0))
+        {
+        default:
+            errno = EINVAL;
+            nvms_assert_fail("Impossible transaction status");
+            break;
+
+        case NVM_TX_ACTIVE:
+            /* abort an active transaction */
+            nvm_abort();
+            nvm_txend();
+            depth--;
+            break;
+
+        case NVM_TX_COMMITTING:
+            errno = EINVAL;
+            nvms_assert_fail("nvm_longjmp not allowed in oncommit operation");
+            break;
+
+        case NVM_TX_ABORTING:
+        case NVM_TX_ROLLBACK:
+            errno = EINVAL;
+            nvms_assert_fail("nvm_longjmp not allowed in onabort operation");
+            break;
+
+        case NVM_TX_COMMITTED:
+        case NVM_TX_ABORTED:
+            /* The current transaction completed but not yet ended so end it */
+            nvm_txend();
+            depth--;
+            break;
+        }
+    }
+#ifdef NVM_EXT
+    } // end transactional block
+#endif //NVM_EXT
+}
+
 /**
  * This works just like a standard longjmp except that it will first end 
  * NVM transactions as needed to get back to the transaction nesting depth
@@ -567,17 +634,10 @@ void nvm_persist1(
  * @param[in] val
  * This is the non-zero value that nvm_setjmp will return
  */
-#ifdef NVM_EXT
 void nvm_longjmp(
-        nvm_jmp_buf *buf, // jmp_buf equivalent
-        int val // setjmp return value
-        )
-#else
-void nvm_longjmp(
-        nvm_jmp_buf *buf, // jmp_buf equivalent
-        int val // setjmp return value
-        )
-#endif //NVM_EXT
+    nvm_jmp_buf *buf, // jmp_buf equivalent
+    int val // setjmp return value
+    )
 {
     int depth = nvm_txdepth();
 
