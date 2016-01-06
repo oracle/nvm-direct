@@ -88,6 +88,12 @@ typedef uint64_t nvm_mutex;
 NVM_SRP(nvm_mutex) // define self-relative pointer operations
 #endif //NVM_EXT
 
+    /**
+     * This is the highest mutex level that an application can pass to
+     * nvm_mutex_init or nvm_create_mutex_array. Higher values are reserved
+     * for use by NVM Direct.
+     */
+#define NVM_MAX_LEVEL (199)
 
     /**
      * This initializes an NVM mutex so it can be locked. This must be called 
@@ -106,7 +112,8 @@ NVM_SRP(nvm_mutex) // define self-relative pointer operations
      * This is the address in NVM of the mutex to initialize.
      * 
      * @param[in] level
-     * This is the lock level for deadlock prevention. It must be less than 200.
+     * This is the lock level for deadlock prevention. It must be less than or
+     * equal to NVM_MAX_LEVEL.
      */
 #ifdef NVM_EXT
     void nvm_mutex_init@( 
@@ -158,7 +165,12 @@ NVM_SRP(nvm_mutex) // define self-relative pointer operations
      * This is the number of mutexes to allocate.
      *
      * @param[in] level
-     * This is the lock level of all the mutexes. It must be less than 200.
+     * This is the lock level of all the mutexes. It must be less than or
+     * equal to NVM_MAX_LEVEL.
+     *
+     * @return
+     * Return is NULL if array could not be allocated and errno contains the
+     * error number. A pointer to the mutex array is returned on success.
      */
 #ifdef NVM_EXT
     nvm_mutex_array ^nvm_create_mutex_array@(

@@ -87,7 +87,7 @@ static nvm_wait_list *nvm_get_wait_list(nvm_transaction *tx, nvm_amutex *mx);
 #endif //NVM_EXT
 
 /**
- * Internal version of nvm_mutex_init that allows levels over 200
+ * Internal version of nvm_mutex_init that allows levels over NVM_MAX_LEVEL
  */
 #ifdef NVM_EXT
 void nvm_mutex_init1(
@@ -132,7 +132,8 @@ void nvm_mutex_init1(
  * This is the address in NVM of the mutex to initialize.
  * 
  * @param[in] level
- * This is the lock level for deadlock prevention. It must be less than 200.
+ * This is the lock level for deadlock prevention. It must be less than or
+ * equal to NVM_MAX_LEVEL.
  */
 #ifdef NVM_EXT
 void nvm_mutex_init@(
@@ -140,7 +141,7 @@ void nvm_mutex_init@(
         uint8_t level
         )
 {
-    if (level >= 200)
+    if (level > NVM_MAX_LEVEL)
         nvms_assert_fail("Invalid lock level");
     nvm_mutex_init1((nvm_amutex^)mutex, level);
 }
@@ -150,7 +151,7 @@ void nvm_mutex_init(
         uint8_t level
         )
 {
-    if (level >= 200)
+    if (level > NVM_MAX_LEVEL)
         nvms_assert_fail("Invalid lock level");
     nvm_mutex_init1((nvm_amutex*)mutex, level);
 }
@@ -285,7 +286,8 @@ void nvm_mutex_fini(
 }
 #endif //NVM_EXT
 
-/* Internal version of nvm_create_mutex_array that allows levels over 200 */
+/* Internal version of nvm_create_mutex_array that allows levels over
+ *  NVM_MAX_LEVEL. */
 #ifdef NVM_EXT
 nvm_mutex_array ^nvm_create_mutex_array1@(
     nvm_heap ^heap,
@@ -298,7 +300,8 @@ nvm_mutex_array ^nvm_create_mutex_array1@(
     if (!ma)
         return 0;
 
-    /* initialize the mutexes, note this does not generate any undo */
+    /* Initialize the mutexes. Note this does not generate any undo
+     * since the array was just allocated. */
     ma=>count ~= count;
     ma=>destroyed ~= 0;
     int i;
@@ -319,7 +322,8 @@ nvm_mutex_array *nvm_create_mutex_array1(
     if (!ma)
         return 0;
 
-    /* initialize the mutexes, note this does not generate any undo */
+    /* Initialize the mutexes. Note this does not generate any undo
+     * since the array was just allocated. */
     ma->count = count;
     ma->destroyed = 0;
     int i;
@@ -344,7 +348,12 @@ nvm_mutex_array *nvm_create_mutex_array1(
  * This is the number of mutexes to allocate.
  *
  * @param[in] level
- * This is the lock level of all the mutexes. It must be less than 200.
+ * This is the lock level of all the mutexes. It must be less than or
+ * equal to NVM_MAX_LEVEL.
+ *
+ * @return
+ * Return is NULL if array could not be allocated and errno contains the
+ * error number. A pointer to the mutex array is returned on success.
  */
 #ifdef NVM_EXT
 nvm_mutex_array ^nvm_create_mutex_array@(
@@ -353,7 +362,7 @@ nvm_mutex_array ^nvm_create_mutex_array@(
     uint8_t level
     )
 {
-    if (level >= 200)
+    if (level > NVM_MAX_LEVEL)
         nvms_assert_fail("Invalid lock level");
     return nvm_create_mutex_array1(heap, count, level);
 }
@@ -364,7 +373,7 @@ nvm_mutex_array *nvm_create_mutex_array(
     uint8_t level
     )
 {
-    if (level >= 200)
+    if (level > NVM_MAX_LEVEL)
         nvms_assert_fail("Invalid lock level");
     return nvm_create_mutex_array1(heap, count, level);
 }
@@ -441,6 +450,62 @@ nvm_mutex *nvm_pick_mutex(
      * pointers to get an even distribution across the mutexes. Use that
      * to select the mutex. */
     return (nvm_mutex *)&array->mutexes[(offset/7) % array->count];
+}
+#endif //NVM_EXT
+
+/**
+ * Get one mutex from a mutex array by an index into the array. A pointer
+ * to the mutex is returned. If the index is past the end of the array a
+ * null pointer is returned. This must be called in a transaction. Any
+ * errors will fire an assert. This is useful for acquiring all the
+ * mutexes one at a time.
+ *
+ * @param[in] array
+ * The mutex array to pick from
+ *
+ * @param[in] index
+ * Index into the array of the mutex to return
+ *
+ * @return
+ * Pointer to the chosen mutex or null if there is none
+ */
+#ifdef NVM_EXT
+nvm_mutex ^nvm_get_mutex@(
+    nvm_mutex_array ^array,
+    uint32_t index
+    )
+{
+    /* get the region for the array and ptr from the current transaction */
+    nvm_thread_data *td = nvm_get_thread_data();
+    nvm_region ^rg = td->region;
+    if (!rg)
+        nvms_assert_fail(
+                "Attempt to get a mutex from an array outside a transaction");
+
+    /* return null if the index is outside the array */
+    if (index >= array=>count)
+        return 0;
+    else
+        return (nvm_mutex ^)%array=>mutexes[index];
+}
+#else
+nvm_mutex *nvm_get_mutex(
+    nvm_mutex_array *array,
+    uint32_t index
+    )
+{
+    /* get the region for the array and ptr from the current transaction */
+    nvm_thread_data *td = nvm_get_thread_data();
+    nvm_region *rg = td->region;
+    if (!rg)
+        nvms_assert_fail(
+                "Attempt to get a mutex from an array outside a transaction");
+
+    /* return null if the index is outside the array */
+    if (index >= array->count)
+        return 0;
+    else
+        return &array->mutexes[index];
 }
 #endif //NVM_EXT
 

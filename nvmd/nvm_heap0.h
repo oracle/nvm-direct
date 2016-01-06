@@ -323,7 +323,7 @@ extern "C"
         /**
          * This is the mutex level for the mutex in a heap.
          */
-#define NVM_HEAP_MUTEX_LEVEL ((uint8_t)240)
+#define NVM_HEAP_MUTEX_LEVEL (NVM_MAX_LEVEL + 41)
 
         /**
          * All blocks allocated to this heap are kept in a doubly linked list.
@@ -430,7 +430,7 @@ extern "C"
         /**
          * This is the mutex level for the mutex in a heap.
          */
-#define NVM_HEAP_MUTEX_LEVEL (240)
+#define NVM_HEAP_MUTEX_LEVEL (NVM_MAX_LEVEL + 41)
 
         /**
          * All blocks allocated to this heap are kept in a doubly linked list.

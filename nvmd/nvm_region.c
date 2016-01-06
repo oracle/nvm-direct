@@ -384,7 +384,7 @@ nvm_desc nvm_create_region(//#
     nvm_app_data *ad = nvm_get_app_data();
     @ desc {
         nvm_mutex_array ^ma = nvm_create_mutex_array1(rh,
-                ad->params.upgrade_mutexes, 255);
+                ad->params.upgrade_mutexes, NVM_UPGRADE_MUTEX_LEVEL);
         if (!ma)
             nvms_assert_fail("No space in root heap for upgrade mutexes");
         region=>upgrade_mutexes @= ma;
@@ -528,7 +528,7 @@ nvm_desc nvm_create_region(
     nvm_app_data *ad = nvm_get_app_data();
     nvm_txbegin(desc);
     nvm_mutex_array *ma = nvm_create_mutex_array1(rh,
-            ad->params.upgrade_mutexes, 255);
+            ad->params.upgrade_mutexes, NVM_UPGRADE_MUTEX_LEVEL);
     if (!ma)
         nvms_assert_fail("No space in root heap for upgrade mutexes");
     nvm_mutex_array_txset(&region->upgrade_mutexes, ma);
@@ -1500,7 +1500,8 @@ void nvm_freex_callback(nvm_remx_ctx *ctx)
 USID("2732 fd0f 0a13 11e2 f304 ce0c 9fd5 33f8")
 void nvm_remx_callback@(nvm_remx_ctx ^ctx)
 {   
-    if (ctx=>offset == 0 || ctx=>bytes == 0)
+    uint8_t ^addr = ctx=>addr;
+    if (ctx=>offset == 0 || ctx=>bytes == 0 || addr == 0)
         return; // callback not activated, or nothing to do.
 
     /* get app data pointer */
@@ -1512,7 +1513,6 @@ void nvm_remx_callback@(nvm_remx_ctx ^ctx)
 
     /* Get the nvm_region address based on the descriptor. */
     nvm_region ^rg = ad->regions[desc]->region;
-    uint8_t ^addr = ctx=>addr;
     if ((void*)rg != (void*)(addr - ctx=>offset))
         nvms_corruption("Inconsistent offset/addr in undo", rg, ctx);
 
@@ -1589,7 +1589,8 @@ void nvm_remx_callback@(nvm_remx_ctx ^ctx)
 #else
 void nvm_remx_callback(nvm_remx_ctx *ctx)
 {
-    if (ctx->offset == 0 || ctx->bytes == 0)
+    uint8_t *addr = void_get(&ctx->addr);
+    if (ctx->offset == 0 || ctx->bytes == 0 || addr == 0)
         return; // callback not activated, or nothing to do.
 
     /* get app data pointer */
@@ -1602,7 +1603,6 @@ void nvm_remx_callback(nvm_remx_ctx *ctx)
     /* Get the nvm_region address based on the descriptor. */
     nvm_region *rg = ad->regions[desc]->region;
     nvm_verify(rg, shapeof(nvm_region));
-    uint8_t *addr = void_get(&ctx->addr);
     if ((void*)rg != (void*)(addr - ctx->offset))
         nvms_corruption("Inconsistent offset/addr in undo", rg, ctx);
 

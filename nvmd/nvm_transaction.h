@@ -480,11 +480,18 @@ extern "C"
 #endif //NVM_EXT
 
     /**
-     * This creates an undo record in the current transaction. The record 
-     * contains an instance of the persistent struct described by the nvm_type.
-     * A pointer to the argument struct is returned so that the caller can 
-     * configure the arguments. Initially the struct will be zero except for 
-     * the USID field. 
+     * This creates an undo record in the current transaction. The function
+     * must be a persistent callback, meaning it has a pointer to a persistent
+     * struct as its only argument. The record contains an instance of the
+     * persistent struct. A pointer to the argument struct is returned so that
+     * the caller can configure the arguments. The struct will be initialized
+     * as if was allocated from an NVM heap.
+     *
+     * Note that the thread could die immediately after the undo record is
+     * added to the transaction and before configuring the argument struct
+     * is complete. Thus the callback must tolerate a partially constructed
+     * argument. Unless there is a persist barrier, the stores into the
+     * argument may complete in any order.
      * 
      * If the undo record is applied, the indicated function is called with a 
      * pointer to the persistent struct allocated in the undo record. The 
@@ -601,9 +608,13 @@ extern "C"
      * struct as its only argument. The record contains an instance of the
      * persistent struct. A pointer to the argument struct is returned so that
      * the caller can configure the arguments. The struct will be initialized
-     * as if was allocated from an NVM heap. Note that if the calling thread
-     * dies during this call, the callback function might be called with
-     * the initialized argument.
+     * as if was allocated from an NVM heap.
+     *
+     * Note that the thread could die immediately after the undo record is
+     * added to the transaction and before configuring the argument struct
+     * is complete. Thus the callback must tolerate a partially constructed
+     * argument. Unless there is a persist barrier, the stores into the
+     * argument may complete in any order.
      * 
      * When the current transaction either commits or aborts, all the locks
      * acquired by the transaction are released in the reverse order they were

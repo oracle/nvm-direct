@@ -330,12 +330,24 @@ extern "C"
         nvm_mutex reg_mutex; 
         
         /**
+         * This is the mutex level for the region mutex .
+         */
+#define NVM_REGION_MUTEX_LEVEL (NVM_MAX_LEVEL + 11)
+
+        /**
          * This is an array of mutexes used to ensure only one thread at a time
          * upgrades a persistent struct. The offset from the beginning of the
          * region is used to pick a mutex to lock before beginning an upgrade.
          * A configuration parameter defines the size of the array.
          */
         nvm_mutex_array ^upgrade_mutexes;
+
+        /**
+         * This is the mutex level for the upgrade mutexes. It is the highest
+         * mutex value possible so that upgrades are always possible without
+         * a deadlock.
+         */
+#define NVM_UPGRADE_MUTEX_LEVEL (255)
 
         /**
          * When a region is mapped into an application it is assigned a
@@ -445,6 +457,11 @@ extern "C"
         nvm_mutex reg_mutex;
 
         /**
+         * This is the mutex level for the region mutex .
+         */
+#define NVM_REGION_MUTEX_LEVEL (NVM_MAX_LEVEL + 11)
+
+        /**
          * This is an array of mutexes used to ensure only one thread at a time
          * upgrades a persistent struct. The offset from the beginning of the
          * region is used to pick a mutex to lock before beginning an upgrade.
@@ -452,6 +469,13 @@ extern "C"
          */
         nvm_mutex_array_srp upgrade_mutexes;
         
+        /**
+         * This is the mutex level for the upgrade mutexes. It is the highest
+         * mutex value possible so that upgrades are always possible without
+         * a deadlock.
+         */
+#define NVM_UPGRADE_MUTEX_LEVEL (255)
+
         /**
          * When a region is mapped into an application it is assigned a
          * nvm_desc for passing to NVM library calls.

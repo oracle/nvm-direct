@@ -1934,6 +1934,12 @@ nvm_lkrec *nvm_add_lock_op(
  * persistent struct. A pointer to the argument struct is returned so that
  * the caller can configure the arguments. The struct will be initialized
  * as if was allocated from an NVM heap.
+ *
+ * Note that the thread could die immediately after the undo record is
+ * added to the transaction and before configuring the argument struct
+ * is complete. Thus the callback must tolerate a partially constructed
+ * argument. Unless there is a persist barrier, the stores into the
+ * argument may complete in any order.
  * 
  * If the undo record is applied, the indicated function is called with a 
  * pointer to the persistent struct allocated in the undo record. The 
@@ -2264,6 +2270,12 @@ void *nvm_oncommit(
  * persistent struct. A pointer to the argument struct is returned so that
  * the caller can configure the arguments. The struct will be initialized
  * as if was allocated from an NVM heap.
+ *
+ * Note that the thread could die immediately after the undo record is
+ * added to the transaction and before configuring the argument struct
+ * is complete. Thus the callback must tolerate a partially constructed
+ * argument. Unless there is a persist barrier, the stores into the
+ * argument may complete in any order.
  * 
  * When the current transaction either commits or aborts, all the locks
  * acquired by the transaction are released in the reverse order they were
@@ -4449,8 +4461,7 @@ int nvm_set_txconfig(
          * This is done in an on unlock operation to ensure the updates are
          * made while the region lock is still held and the transaction is 
          * guaranteed committed. If we die while initializing the context,
-         * then the transaction does not commit and the callback does
-         * nothing. */
+         * then the transaction does not commit and the context is not used. */
         nvm_txconfig_ctx ^ctx = 
                 nvm_onunlock(|nvm_txconfig_callback);
         ctx=>tt_append ~= att;
@@ -4573,8 +4584,7 @@ int nvm_set_txconfig(
          * This is done in an on unlock operation to ensure the updates are
          * made while the region lock is still held and the transaction is 
          * guaranteed committed. If we die while initializing the context,
-         * then the transaction does not commit and the callback does
-         * nothing. */
+         * then the transaction does not commit and the context is not used. */
         nvm_txconfig_ctx *ctx = 
                 nvm_onunlock(nvm_extern_nvm_txconfig_callback.usid);
         nvm_trans_table_set(&ctx->tt_append, att);
