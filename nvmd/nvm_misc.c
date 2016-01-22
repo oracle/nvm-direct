@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
@@ -126,8 +126,8 @@ void nvm_init(void)
 
 /*---------------------------- nvm_thread_init ------------------------------*/
 /**\brief Initialize a thread to use the NVM library.
- * 
- * This initializes a thread to use the NVM library. It must be called 
+ *
+ * This initializes a thread to use the NVM library. It must be called
  * before any other calls.
  */
 void nvm_thread_init()
@@ -193,7 +193,7 @@ void nvm_thread_init()
  * clean up the data the NVM library is maintaining for it. After this call
  * returns the thread may not make any other calls to the NVM library except
  * nvm_thread_init. If the thread has a current transaction an assert will fire.
- * 
+ *
  * This call is only necessary if the application needs to continue
  * execution without this thread.
  */
@@ -232,18 +232,18 @@ void nvm_thread_fini(void)
 }
 
 /**
- * This ensures that all cache lines in the indicated area of NVM will be 
- * scheduled to be made persistent at the next nvm_persist. This is a 
- * no-op if the platform does not need an explicit flush per cache line to 
+ * This ensures that all cache lines in the indicated area of NVM will be
+ * scheduled to be made persistent at the next nvm_persist. This is a
+ * no-op if the platform does not need an explicit flush per cache line to
  * force cached data to NVM.
- * 
- * This is not normally called directly from the application. The 
- * preprocessor adds a flush with every store to an NVM address. An 
- * application only needs to do an explicit flush if it calls a legacy 
- * function to update NVM. The legacy function will not do any flushes 
- * since it is not written to use NVM. The application must do the flushes 
+ *
+ * This is not normally called directly from the application. The
+ * preprocessor adds a flush with every store to an NVM address. An
+ * application only needs to do an explicit flush if it calls a legacy
+ * function to update NVM. The legacy function will not do any flushes
+ * since it is not written to use NVM. The application must do the flushes
  * when the legacy function returns.
- * 
+ *
  * @param[in] ptr
  * The is the first byte of NVM to flush from caches
  * @param[in] bytes
@@ -378,7 +378,7 @@ void nvm_flush(
 /**
  * This is identical to nvm_flush except that it is slightly faster
  * because it only flushes one cache line.
- * 
+ *
  * @param[in] ptr
  * The is an address in the cache line to flush from caches
  */
@@ -492,17 +492,17 @@ void nvm_flush1(
  * data to be persistent, then this barrier is a no-op. If the system uses
  * Commit On Shutdown (COS) this forces the dirty NVM to the memory
  * controller write queue.
- * 
- * This is not normally called directly from the application. The creation 
- * of each undo record executes a barrier as well as commit or abort of a 
- * transaction. An application may need to do this explicitly if it is 
- * storing data in NVM without using transactions. For example, an 
- * application might copy client data to an NVM buffer then update a 
- * counter to make it visible. A persist barrier is needed after the copy 
- * and before updating the counter. Another persist barrier is needed after 
- * the counter update to make the counter persistent. Note that in this 
- * case a flush is also required if bcopy is used to copy the data. 
- * Presumably the counter update uses a non-transactional store which 
+ *
+ * This is not normally called directly from the application. The creation
+ * of each undo record executes a barrier as well as commit or abort of a
+ * transaction. An application may need to do this explicitly if it is
+ * storing data in NVM without using transactions. For example, an
+ * application might copy client data to an NVM buffer then update a
+ * counter to make it visible. A persist barrier is needed after the copy
+ * and before updating the counter. Another persist barrier is needed after
+ * the counter update to make the counter persistent. Note that in this
+ * case a flush is also required if bcopy is used to copy the data.
+ * Presumably the counter update uses a non-transactional store which
  * automatically includes a flush.
  */
 void nvm_persist()
@@ -531,19 +531,19 @@ void nvm_persist()
     td->persist_cnt++;
 }
 /**
- * This combines a flush of a single cache line with a persist barrier. It 
+ * This combines a flush of a single cache line with a persist barrier. It
  * is much faster because the flush cache does not get scanned.
- * 
+ *
  * @param[in] ptr
  * The is an address in the cache line to flush from caches
  */
 #ifdef NVM_EXT
 void nvm_persist1(
-    void ^ptr 
+    void ^ptr
     )
 #else
 void nvm_persist1(
-    void *ptr    
+    void *ptr
     )
 #endif //NVM_EXT
 {
@@ -622,15 +622,15 @@ void nvm_txrestore(int old_depth)
 }
 
 /**
- * This works just like a standard longjmp except that it will first end 
+ * This works just like a standard longjmp except that it will first end
  * NVM transactions as needed to get back to the transaction nesting depth
  * that existed when nvm_set_jmp saved the environment in buf. It then calls
  * the standard longjmp.
- * 
+ *
  * @param[in] buf
- * This must contain a context stored by nvm_setjmp in a function that is 
+ * This must contain a context stored by nvm_setjmp in a function that is
  * still in the call stack.
- * 
+ *
  * @param[in] val
  * This is the non-zero value that nvm_setjmp will return
  */
@@ -698,146 +698,188 @@ void nvm_longjmp(
     longjmp(buf->buf, val);
 }
 
-#if 0 //TODO+ the CAS routines are not used as of now
 /**
- * Compare and swap an 8 byte location in NVM. The return value is the 
+ * Compare and swap an 8 byte location in NVM. The return value is the
  * value of the location before the CAS executed. If it is equal to the old
  * value then the swap succeeded.
- * 
- * A CAS is like a nested transaction that either commits or aborts on its 
- * own. It cannot be part of a larger transaction that updates multiple 
+ *
+ * A CAS is like a nested transaction that either commits or aborts on its
+ * own. It cannot be part of a larger transaction that updates multiple
  * locations atomically, and might rollback.
- * 
- * The NVM version of CAS is different than a normal CAS because it first 
- * forces any previous NVM stores to be persistent, and if the swap 
- * happens, it forces the new value to be persistent before returning. 
- * 
+ *
+ * The NVM version of CAS is different than a normal CAS because it first
+ * forces any previous NVM stores to be persistent, and if the swap
+ * happens, it forces the new value to be persistent before returning.
+ *
  * @param[in] ptr
  * This is the address of the NVM location to CAS
- * 
+ *
  * @param[in] oldval
  * This is the expected current value to be replaced.
- * 
+ *
  * @param[in] newval
  * This is the value to store if the compare succeeds
- * 
+ *
  * @return
- * The value in the location when CAS was executed. 
+ * The value in the location when CAS was executed.
  */
+#ifdef NVM_EXT
 uint64_t nvm_cas8(
-#//    volatile uint64_t ^ptr,  
-        volatile uint64_t *ptr, //# 
-        uint64_t oldval,
-        uint64_t newval
-        )
+    volatile uint64_t ^ptr,
+    uint64_t oldval,
+    uint64_t newval
+    )
 {
-    /* ensure NVM is consistent since there is no undo for this operation */
-    nvm_persist();
+    /* do the compare and swap */
+    uint64_t ret = nvms_cas8((uint64_t *)ptr, oldval, newval);
 
+    /* Ensure the result is persistent. It is possible a previous CAS did
+     * not successfully flush before this was called. This flush ensures
+     * the basis of this CAS is persistent even if there is no store. */
+    nvm_persist1((void^)ptr);
+
+    return ret;
+}
+#else
+uint64_t nvm_cas8(
+    volatile uint64_t *ptr,
+    uint64_t oldval,
+    uint64_t newval
+    )
+{
     /* do the compare and swap */
     uint64_t ret = nvms_cas8(ptr, oldval, newval);
 
-    /* If it succeeded then ensure it is persistent. */
-    if (ret == oldval)
-    {
-        nvm_persist1((void*)ptr);
-    }
+    /* Ensure the result is persistent. It is possible a previous CAS did
+     * not successfully flush before this was called. This flush ensures
+     * the basis of this CAS is persistent even if there is no store. */
+    nvm_persist1((void*)ptr);
 
     return ret;
 }
+#endif //NVM_EXT
+
 /**
- * Compare and swap a 4 byte location in NVM. The return value is the 
+ * Compare and swap a 4 byte location in NVM. The return value is the
  * value of the location before the CAS executed. If it is equal to the old
  * value then the swap succeeded.
- * 
- * A CAS is like a nested transaction that either commits or aborts on its 
- * own. It cannot be part of a larger transaction that updates multiple 
+ *
+ * A CAS is like a nested transaction that either commits or aborts on its
+ * own. It cannot be part of a larger transaction that updates multiple
  * locations atomically, and might rollback.
- * 
- * The NVM version of CAS is different than a normal CAS because it first 
- * forces any previous NVM stores to be persistent, and if the swap 
- * happens, it forces the new value to be persistent before returning. 
- * 
+ *
+ * The NVM version of CAS is different than a normal CAS because it first
+ * forces any previous NVM stores to be persistent, and if the swap
+ * happens, it forces the new value to be persistent before returning.
+ *
  * @param[in] ptr
  * This is the address of the NVM location to CAS
- * 
+ *
  * @param[in] oldval
  * This is the expected current value to be replaced.
- * 
+ *
  * @param[in] newval
  * This is the value to store if the compare succeeds
- * 
+ *
  * @return
- * The value in the location when CAS was executed. 
+ * The value in the location when CAS was executed.
  */
+#ifdef NVM_EXT
 uint32_t nvm_cas4(
-#//    volatile uint32_t ^ptr,  
-        volatile uint32_t *ptr, //# 
-        uint32_t oldval,
-        uint32_t newval
-        )
+    volatile uint32_t ^ptr,
+    uint32_t oldval,
+    uint32_t newval
+    )
 {
-    /* ensure NVM is consistent since there is no undo for this operation */
-    nvm_persist();
+    /* do the compare and swap */
+    uint32_t ret = nvms_cas4((uint32_t *)ptr, oldval, newval);
 
+    /* Ensure the result is persistent. It is possible a previous CAS did
+     * not successfully flush before this was called. This flush ensures
+     * the basis of this CAS is persistent even if there is no store. */
+    nvm_persist1((void^)ptr);
+
+    return ret;
+}
+#else
+uint32_t nvm_cas4(
+    volatile uint32_t *ptr,
+    uint32_t oldval,
+    uint32_t newval
+    )
+{
     /* do the compare and swap */
     uint32_t ret = nvms_cas4(ptr, oldval, newval);
 
-    /* If it succeeded then ensure it is persistent. */
-    if (ret == oldval)
-    {
-        nvm_persist1((void*)ptr);
-    }
+    /* Ensure the result is persistent. It is possible a previous CAS did
+     * not successfully flush before this was called. This flush ensures
+     * the basis of this CAS is persistent even if there is no store. */
+    nvm_persist1((void*)ptr);
 
     return ret;
 }
+#endif //NVM_EXT
+
 /**
- * Compare and swap a 2 byte location in NVM. The return value is the 
+ * Compare and swap a 2 byte location in NVM. The return value is the
  * value of the location before the CAS executed. If it is equal to the old
  * value then the swap succeeded.
- * 
- * A CAS is like a nested transaction that either commits or aborts on its 
- * own. It cannot be part of a larger transaction that updates multiple 
+ *
+ * A CAS is like a nested transaction that either commits or aborts on its
+ * own. It cannot be part of a larger transaction that updates multiple
  * locations atomically, and might rollback.
- * 
- * The NVM version of CAS is different than a normal CAS because it first 
- * forces any previous NVM stores to be persistent, and if the swap 
- * happens, it forces the new value to be persistent before returning. 
- * 
+ *
+ * The NVM version of CAS is different than a normal CAS because it first
+ * forces any previous NVM stores to be persistent, and if the swap
+ * happens, it forces the new value to be persistent before returning.
+ *
  * @param[in] ptr
  * This is the address of the NVM location to CAS
- * 
+ *
  * @param[in] oldval
  * This is the expected current value to be replaced.
- * 
+ *
  * @param[in] newval
  * This is the value to store if the compare succeeds
- * 
+ *
  * @return
- * The value in the location when CAS was executed. 
+ * The value in the location when CAS was executed.
  */
-uint16_t nvm_cas2(
-#//    volatile uint16_t ^ptr,  
-        volatile uint16_t *ptr, //# 
-        uint16_t oldval,
-        uint16_t newval
-        )
-{
-    /* ensure NVM is consistent since there is no undo for this operation */
-    nvm_persist();
+#ifdef NVM_EXT
+ uint16_t nvm_cas2(
+     volatile uint16_t ^ptr,
+     uint16_t oldval,
+     uint16_t newval
+     )
+ {
+     /* do the compare and swap */
+     uint16_t ret = nvms_cas2((uint16_t *)ptr, oldval, newval);
 
+     /* Ensure the result is persistent. It is possible a previous CAS did
+      * not successfully flush before this was called. This flush ensures
+      * the basis of this CAS is persistent even if there is no store. */
+     nvm_persist1((void^)ptr);
+
+     return ret;
+ }
+#else
+ uint16_t nvm_cas2(
+     volatile uint16_t *ptr,
+     uint16_t oldval,
+     uint16_t newval
+     )
+{
     /* do the compare and swap */
     uint16_t ret = nvms_cas2(ptr, oldval, newval);
 
-    /* If it succeeded then ensure it is persistent. */
-    if (ret == oldval)
-    {
-        nvm_persist1((void*)ptr);
-    }
+    /* Ensure the result is persistent. It is possible a previous CAS did
+      * not successfully flush before this was called. This flush ensures
+      * the basis of this CAS is persistent even if there is no store. */
+    nvm_persist1((void*)ptr);
 
     return ret;
 }
-#endif
+#endif //NVM_EXT
 //TODO+ before calling nvms_corrupt mark the nvm_region as failed for
 //TODO+ corruption. Have a status that is the mechanism of the last detach:
 //TODO+ clean, assert, or corruption
