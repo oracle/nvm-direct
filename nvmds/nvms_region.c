@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
@@ -623,12 +623,16 @@ int nvms_alloc_range(
     /* Zero the newly allocated memory just in case it had been used before
      * as part of this file. Note that this will always round up to the next
      * megabyte. */
-    const size_t bufsz = 1024 * 1024;
+    size_t bufsz = 1024 * 1024;
     void *buf = malloc(bufsz);
     memset(buf, 0, bufsz);
     size_t cleared;
     for (cleared = 0; cleared < len; cleared += bufsz)
     {
+        /* do not write beyond the allocated space */
+        if (cleared + bufsz > len)
+            bufsz = len-cleared;
+
         int cnt = pwrite(handle->osfd, buf, bufsz, offset + cleared);
         if (cnt < 0)
         {

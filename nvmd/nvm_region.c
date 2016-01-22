@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
@@ -3483,8 +3483,8 @@ void nvm_unmap_region(nvm_desc desc)
     nvms_unlock_mutex(ad->mutex);
 
     /* Remove the region file from this process's address space */
-    if (!nvms_unmap_region(rd->handle))
-        nvms_assert_fail("Error unmapping a region file");
+    if (!nvms_close_region(rd->handle))
+        nvms_assert_fail("Error closing a region file");
 
     /* Release the pathname  */
     if (!nvms_app_free(rd->pathname))
