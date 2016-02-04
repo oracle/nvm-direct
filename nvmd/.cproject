@@ -5,10 +5,9 @@
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.config.gnu.so.debug.245027014" moduleId="org.eclipse.cdt.core.settings" name="Debug">
 				<externalSettings>
 					<externalSetting>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/onvm"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="includePath" name="/onvms"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/onvm/Debug"/>
-						<entry flags="RESOLVED" kind="libraryFile" name="onvm" srcPrefixMapping="" srcRootPath=""/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/nvmd"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/nvmd/Debug"/>
+						<entry flags="RESOLVED" kind="libraryFile" name="nvmd" srcPrefixMapping="" srcRootPath=""/>
 					</externalSetting>
 				</externalSettings>
 				<extensions>
@@ -25,7 +24,7 @@
 					<folderInfo id="cdt.managedbuild.config.gnu.so.debug.245027014." name="/" resourcePath="">
 						<toolChain id="cdt.managedbuild.toolchain.gnu.so.debug.1631496433" name="Linux GCC" superClass="cdt.managedbuild.toolchain.gnu.so.debug">
 							<targetPlatform id="cdt.managedbuild.target.gnu.platform.so.debug.148073618" name="Debug Platform" superClass="cdt.managedbuild.target.gnu.platform.so.debug"/>
-							<builder buildPath="${workspace_loc:/onvm}/Debug" id="cdt.managedbuild.target.gnu.builder.so.debug.368197649" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.so.debug"/>
+							<builder buildPath="${workspace_loc:/nvmd}/Debug" id="cdt.managedbuild.target.gnu.builder.so.debug.632972718" keepEnvironmentInBuildfile="false" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.so.debug"/>
 							<tool id="cdt.managedbuild.tool.gnu.archiver.base.620978736" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.so.debug.1610026702" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.so.debug">
 								<option id="gnu.cpp.compiler.so.debug.option.optimization.level.952925606" name="Optimization Level" superClass="gnu.cpp.compiler.so.debug.option.optimization.level" value="gnu.cpp.compiler.optimization.level.none" valueType="enumerated"/>
@@ -35,6 +34,7 @@
 								<option defaultValue="gnu.c.optimization.level.none" id="gnu.c.compiler.so.debug.option.optimization.level.566371660" name="Optimization Level" superClass="gnu.c.compiler.so.debug.option.optimization.level" valueType="enumerated"/>
 								<option id="gnu.c.compiler.so.debug.option.debugging.level.1956977607" name="Debug Level" superClass="gnu.c.compiler.so.debug.option.debugging.level" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.929664650" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/libpmem}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmds}&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.misc.pic.1849928485" name="Position Independent Code (-fPIC)" superClass="gnu.c.compiler.option.misc.pic" value="true" valueType="boolean"/>
@@ -46,8 +46,10 @@
 								<option id="gnu.c.link.option.soname.1160940712" name="Shared object name (-Wl,-soname=)" superClass="gnu.c.link.option.soname" value="" valueType="string"/>
 								<option id="gnu.c.link.option.libs.1475122803" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="nvmds"/>
+									<listOptionValue builtIn="false" value="pmem"/>
 								</option>
 								<option id="gnu.c.link.option.paths.740615070" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/libpmem/Debug}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmds/Debug}&quot;"/>
 								</option>
 								<option id="gnu.c.link.option.ldflags.2031224658" name="Linker flags" superClass="gnu.c.link.option.ldflags" value="" valueType="string"/>
@@ -64,34 +66,38 @@
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.assembler.so.debug.1604213100" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.so.debug">
 								<option id="gnu.both.asm.option.include.paths.504267155" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/onvms}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/libpmem}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmds}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.654925324" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<sourceEntries>
+						<entry excluding="libpmem.a" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+					</sourceEntries>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings">
 				<externalSettings containerId="nvmds;cdt.managedbuild.config.gnu.lib.debug.1137774631" factoryId="org.eclipse.cdt.core.cfg.export.settings.sipplier">
 					<externalSetting>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/onvms"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/onvms/Debug"/>
-						<entry flags="RESOLVED" kind="libraryFile" name="onvms" srcPrefixMapping="" srcRootPath=""/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/nvmds"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/nvmds/Debug"/>
+						<entry flags="RESOLVED" kind="libraryFile" name="nvmds" srcPrefixMapping="" srcRootPath=""/>
+					</externalSetting>
+				</externalSettings>
+				<externalSettings containerId="libpmem;cdt.managedbuild.config.gnu.lib.debug.681755896" factoryId="org.eclipse.cdt.core.cfg.export.settings.sipplier">
+					<externalSetting>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/libpmem"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/libpmem/Debug"/>
+						<entry flags="RESOLVED" kind="libraryFile" name="libpmem" srcPrefixMapping="" srcRootPath=""/>
 					</externalSetting>
 				</externalSettings>
 			</storageModule>
 		</cconfiguration>
 		<cconfiguration id="cdt.managedbuild.config.gnu.so.release.1256810117">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.config.gnu.so.release.1256810117" moduleId="org.eclipse.cdt.core.settings" name="Release">
-				<externalSettings>
-					<externalSetting>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/onvm"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/onvm/Release"/>
-						<entry flags="RESOLVED" kind="libraryFile" name="onvm" srcPrefixMapping="" srcRootPath=""/>
-					</externalSetting>
-				</externalSettings>
+				<externalSettings/>
 				<extensions>
 					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
 					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
@@ -106,7 +112,7 @@
 					<folderInfo id="cdt.managedbuild.config.gnu.so.release.1256810117." name="/" resourcePath="">
 						<toolChain id="cdt.managedbuild.toolchain.gnu.so.release.1520226392" name="Linux GCC" superClass="cdt.managedbuild.toolchain.gnu.so.release">
 							<targetPlatform id="cdt.managedbuild.target.gnu.platform.so.release.535437106" name="Debug Platform" superClass="cdt.managedbuild.target.gnu.platform.so.release"/>
-							<builder buildPath="${workspace_loc:/onvm}/Release" id="cdt.managedbuild.target.gnu.builder.so.release.1821216058" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.so.release"/>
+							<builder buildPath="${workspace_loc:/nvmd}/Release" id="cdt.managedbuild.target.gnu.builder.so.release.1069043335" keepEnvironmentInBuildfile="false" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.so.release"/>
 							<tool id="cdt.managedbuild.tool.gnu.archiver.base.200388021" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.so.release.27498439" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.so.release">
 								<option id="gnu.cpp.compiler.so.release.option.optimization.level.392609711" name="Optimization Level" superClass="gnu.cpp.compiler.so.release.option.optimization.level" value="gnu.cpp.compiler.optimization.level.most" valueType="enumerated"/>
@@ -138,13 +144,7 @@
 		</cconfiguration>
 		<cconfiguration id="cdt.managedbuild.config.gnu.so.debug.245027014.1958352163">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.config.gnu.so.debug.245027014.1958352163" moduleId="org.eclipse.cdt.core.settings" name="DebugX">
-				<externalSettings>
-					<externalSetting>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/onvm"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/onvm/DebugX"/>
-						<entry flags="RESOLVED" kind="libraryFile" name="onvm" srcPrefixMapping="" srcRootPath=""/>
-					</externalSetting>
-				</externalSettings>
+				<externalSettings/>
 				<extensions>
 					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
 					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
@@ -159,7 +159,7 @@
 					<folderInfo id="cdt.managedbuild.config.gnu.so.debug.245027014.1958352163." name="/" resourcePath="">
 						<toolChain id="cdt.managedbuild.toolchain.gnu.so.debug.1747466918" name="Linux GCC" superClass="cdt.managedbuild.toolchain.gnu.so.debug">
 							<targetPlatform id="cdt.managedbuild.target.gnu.platform.so.debug.513106931" name="Debug Platform" superClass="cdt.managedbuild.target.gnu.platform.so.debug"/>
-							<builder autoBuildTarget="all" buildPath="${workspace_loc:/onvm}/Debug" cleanBuildTarget="clean" enableAutoBuild="false" enableCleanBuild="true" enabledIncrementalBuild="true" id="cdt.managedbuild.target.gnu.builder.so.debug.867223002" incrementalBuildTarget="all" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" parallelBuildOn="false" superClass="cdt.managedbuild.target.gnu.builder.so.debug"/>
+							<builder buildPath="${workspace_loc:/nvmd}/DebugX" id="cdt.managedbuild.target.gnu.builder.so.debug.1797516949" keepEnvironmentInBuildfile="false" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.so.debug"/>
 							<tool id="cdt.managedbuild.tool.gnu.archiver.base.1320917363" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.so.debug.2071768085" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.so.debug">
 								<option id="gnu.cpp.compiler.so.debug.option.optimization.level.1437767083" name="Optimization Level" superClass="gnu.cpp.compiler.so.debug.option.optimization.level" value="gnu.cpp.compiler.optimization.level.none" valueType="enumerated"/>
@@ -182,15 +182,15 @@
 								<option defaultValue="true" id="gnu.c.link.so.debug.option.shared.49822795" name="Shared (-shared)" superClass="gnu.c.link.so.debug.option.shared" valueType="boolean"/>
 								<option id="gnu.c.link.option.soname.1682841380" name="Shared object name (-Wl,-soname=)" superClass="gnu.c.link.option.soname" value="" valueType="string"/>
 								<option id="gnu.c.link.option.libs.1942939655" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
-									<listOptionValue builtIn="false" value="nvmds"/>
+									<listOptionValue builtIn="false" srcPrefixMapping="" srcRootPath="" value="nvmds"/>
+									<listOptionValue builtIn="false" value="pmem"/>
 								</option>
 								<option id="gnu.c.link.option.paths.1783438793" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmds/DebugX}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/libpmem/Debug}&quot;"/>
 								</option>
 								<option id="gnu.c.link.option.ldflags.2125011683" name="Linker flags" superClass="gnu.c.link.option.ldflags" value="" valueType="string"/>
-								<option id="gnu.c.link.option.other.168289671" name="Other options (-Xlinker [option])" superClass="gnu.c.link.option.other" valueType="stringList">
-									<listOptionValue builtIn="false" value="-init=nvm_init"/>
-								</option>
+								<option id="gnu.c.link.option.other.168289671" name="Other options (-Xlinker [option])" superClass="gnu.c.link.option.other"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.1511970808" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -202,6 +202,7 @@
 							<tool id="cdt.managedbuild.tool.gnu.assembler.so.debug.102078804" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.so.debug">
 								<option id="gnu.both.asm.option.include.paths.1781071003" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmds}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/libpmem}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1421503789" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
@@ -212,24 +213,18 @@
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings">
 				<externalSettings containerId="nvmds;cdt.managedbuild.config.gnu.lib.debug.1137774631.310056" factoryId="org.eclipse.cdt.core.cfg.export.settings.sipplier">
 					<externalSetting>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/onvms"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/onvms/DebugX"/>
-						<entry flags="RESOLVED" kind="libraryFile" name="onvms" srcPrefixMapping="" srcRootPath=""/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/nvmds"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/nvmds/DebugX"/>
+						<entry flags="RESOLVED" kind="libraryFile" name="nvmds" srcPrefixMapping="" srcRootPath=""/>
 					</externalSetting>
 				</externalSettings>
 			</storageModule>
 		</cconfiguration>
 	</storageModule>
-	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-		<project id="onvm.cdt.managedbuild.target.gnu.so.57994144" name="Shared Library" projectType="cdt.managedbuild.target.gnu.so"/>
-	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
-		<configuration configurationName="Release">
-			<resource resourceType="PROJECT" workspacePath="/onvm"/>
-		</configuration>
 		<configuration configurationName="DebugX">
-			<resource resourceType="PROJECT" workspacePath="/onvm"/>
+			<resource resourceType="PROJECT" workspacePath="/nvmd"/>
 		</configuration>
 		<configuration configurationName="Debug">
 			<resource resourceType="PROJECT" workspacePath="/nvmd"/>
@@ -247,5 +242,9 @@
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.so.release.1256810117;cdt.managedbuild.config.gnu.so.release.1256810117.;cdt.managedbuild.tool.gnu.c.compiler.so.release.1678356503;cdt.managedbuild.tool.gnu.c.compiler.input.11163841">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+		<project id="onvm.cdt.managedbuild.target.gnu.so.57994144" name="Shared Library" projectType="cdt.managedbuild.target.gnu.so"/>
 	</storageModule>
 </cproject>

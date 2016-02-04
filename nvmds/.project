@@ -3,6 +3,7 @@
 	<name>nvmds</name>
 	<comment></comment>
 	<projects>
+		<project>libpmem</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

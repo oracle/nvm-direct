@@ -39,22 +39,22 @@ SOFTWARE.
 */
 /**\file
    NAME\n
-     nvm_misc.c - Miscellaneous NVM services 
+     nvm_misc.c - Miscellaneous NVM services
 
    DESCRIPTION\n
       This implements miscellaneous services for managing processor caching and
       dealing with errors.
 
-      Processor caches can hold a dirty version of an NVM cache line. To make 
+      Processor caches can hold a dirty version of an NVM cache line. To make
       the contents of NVM consistent it is necessary to flush the caches to NVM.
-      With flush on shutdown nothing is flushed until the system is shutting 
-      down. However flush on barrier requires the software to have barriers 
-      that ensure previous stores to NVM are persistent. The implementation of 
-      barriers is different from one platform to another. Thus there needs to 
-      be service functions to implement barriers. 
+      With flush on shutdown nothing is flushed until the system is shutting
+      down. However flush on barrier requires the software to have barriers
+      that ensure previous stores to NVM are persistent. The implementation of
+      barriers is different from one platform to another. Thus there needs to
+      be service functions to implement barriers.
 
-      There are some error situations that cannot be handled by returning 
-      failure and setting errno. These are reported to the service library 
+      There are some error situations that cannot be handled by returning
+      failure and setting errno. These are reported to the service library
       which exits the process so that recovery can be run.
 
  */
@@ -70,12 +70,13 @@ SOFTWARE.
 #include <pthread.h>
 #include <string.h>
 #include "errno.h"
+#include "libpmem.h"
 #include "nvms_misc.h"
 #include "nvms_memory.h"
 
 /**
  * Return a copy of the configuration parameters for this application.
- * 
+ *
  * @param[out] params
  * Pointer to parameter struct to fill in.
  */
@@ -91,15 +92,15 @@ void nvms_get_params(nvms_parameters *params)
     params->upgrade_mutexes = 1024;
 }
 /**
- * This starts one cache line on its way from a processor cache to its NVM 
- * DIMM. It is possible that there is nothing to be done. The ptr argument 
- * will be cache line aligned. The cache line may remain in cache after it 
- * is made persistent, but some implementations remove it from the 
+ * This starts one cache line on its way from a processor cache to its NVM
+ * DIMM. It is possible that there is nothing to be done. The ptr argument
+ * will be cache line aligned. The cache line may remain in cache after it
+ * is made persistent, but some implementations remove it from the
  * processor cache.
- * 
+ *
  * The pointer is a uint64_t since it is not used as a pointer and it makes
  * the arithmetic easier.
- * 
+ *
  * @param[in] ptr
  * Cache line aligned address of NVM to flush.
  */
@@ -107,28 +108,36 @@ void nvms_flush(
         uint64_t ptr
         )
 {
+#ifdef LIBPMEM_H
+    pmem_flush((void *)ptr, 1);
+#else
     return; // need some ASM here
+#endif
 }
 /**
- * This does not return until all outstanding stores to NVM by the current 
- * thread are truly persistent. Some platforms require nvms_flush to be 
+ * This does not return until all outstanding stores to NVM by the current
+ * thread are truly persistent. Some platforms require nvms_flush to be
  * called for each cache line before this will wait for it to be flushed.
  */
 void nvms_persist()
 {
+#ifdef LIBPMEM_H
+    pmem_drain();
+#else
     return; // need some ASM here
+#endif
 }
 /**
- * When the application makes a logical error that cannot be returned as 
- * an error nvms_assert_fail is called to end the thread. A value 
- * indicating the error cause is put in errno, and an error message is 
+ * When the application makes a logical error that cannot be returned as
+ * an error nvms_assert_fail is called to end the thread. A value
+ * indicating the error cause is put in errno, and an error message is
  * passed in.
- * 
- * A good example of this is beginning a transaction when another 
- * transaction for a different region is still current. Generating too much 
- * undo is another example since it is not reasonable to have every 
+ *
+ * A good example of this is beginning a transaction when another
+ * transaction for a different region is still current. Generating too much
+ * undo is another example since it is not reasonable to have every
  * transactional store check for an error.
- * 
+ *
  * @param[in] err
  * An error message describing the problem
  */
@@ -140,25 +149,25 @@ void nvms_assert_fail(
     exit(1);
 }
 /**
- * When an impossible data structure state is discovered this is called to 
- * report the problem.  The error message describes the problem. Depending 
- * on the problem there may be one or two addresses that help identify 
+ * When an impossible data structure state is discovered this is called to
+ * report the problem.  The error message describes the problem. Depending
+ * on the problem there may be one or two addresses that help identify
  * where the corruption is. This exits the process rather than return.
- * 
+ *
  * @param[in] err
  * An error message describing the problem
- * 
+ *
  * @param[in] ptr1
  * Possibly a relevant address
- * 
+ *
  * @param[in] ptr2
  * Possibly a relevant address
- * 
+ *
  */
 void nvms_corruption(
         const char *err,
-        const void *ptr1,    
-        const void *ptr2    
+        const void *ptr1,
+        const void *ptr2
         )
 {
     fprintf(stderr, "NVMS CORRUPTION: %s, (%p), (%p)\n", err, ptr1, ptr2);
@@ -178,16 +187,16 @@ static void *nvms_call_txrecovery(void *ctx)
 /**
  * This is called to spawn a thread to recover a transaction that was not
  * idle at the last detach of this region.
- * 
+ *
  * The new thread must call nvm_txrecover passing the ctx to it.
- * 
+ *
  * If this service library only supports one single thread of execution
  * in one process, then nvm_txrecover can simply be called from nvms_spawn.
  * The thread private pointer must be saved and restored around the call.
  * However direct call will only work if the region is only accessed by
  * single threaded applications. If region attach discovers two dead
  * transactions, the first one to recover might hang.
- * 
+ *
  * @param[in] ctx
  * The ctx argument to pass on to nvm_txrecover in the new thread.
  */
@@ -213,8 +222,8 @@ void nvms_spawn_txrecover(void *ctx)
 /**
  * This copies data into NVM from either NVM or volatile memory. It works
  * just like the standard C function memcpy. It returns the destination
- * address and ensures the data is persistently saved in NVM.
- * 
+ * address and ensures the data is persistently flushed to NVM.
+ *
  * This may be more efficient at forcing persistence than a loop that does
  * assignment.
 
@@ -228,10 +237,14 @@ void ^nvms_copy(
     void ^dest,      // destination in NVM
     const void *src, // source in NVM or volatile memory
     size_t n         // number of bytes to copy
-) 
+)
 {
+#ifdef LIBPMEM_H
+    pmem_memcpy_nodrain((void*)dest, src, n);
+#else
     memcpy((void*)dest, src, n);
     nvms_flushi(dest,n);
+#endif
     return dest;
 }
 #else
@@ -239,10 +252,14 @@ void *nvms_copy(
     void *dest,      // destination in NVM
     const void *src, // source in NVM or volatile memory
     size_t n         // number of bytes to copy
-) 
+)
 {
+#ifdef LIBPMEM_H
+    pmem_memcpy_nodrain(dest, src, n);
+#else
     memcpy(dest, src, n);
     nvms_flushi(dest,n);
+#endif
     return dest;
 }
 #endif //NVM_EXT
@@ -250,7 +267,7 @@ void *nvms_copy(
 /**
  * This copies a string into NVM from either NVM or volatile memory. It works
  * just like the standard C function strcpy. It returns the destination
- * address and ensures the data is persistently saved in NVM.
+ * address and ensures the data is flushed to NVM.
  *
  * This may be more efficient at forcing persistence than a loop that does
  * assignment.
@@ -266,8 +283,12 @@ void ^nvms_strcpy(
 )
 {
     size_t n = strlen(src)+1;     // number of bytes that will be copied
+#ifdef LIBPMEM_H
+    pmem_memcpy_nodrain((void*)dest, src, n);
+#else
     strcpy((void*)dest, src);
     nvms_flushi(dest,n);
+#endif
     return dest;
 }
 #else
@@ -277,8 +298,12 @@ void *nvms_strcpy(
 )
 {
     size_t n = strlen(src)+1;     // number of bytes that will be copied
+#ifdef LIBPMEM_H
+    pmem_memcpy_nodrain(dest, src, n);
+#else
     strcpy(dest, src);
     nvms_flushi(dest,n);
+#endif
     return dest;
 }
 #endif //NVM_EXT
@@ -286,7 +311,7 @@ void *nvms_strcpy(
 /**
  * This copies a string into NVM from either NVM or volatile memory. It works
  * just like the standard C function strncpy. It returns the destination
- * address and ensures the data is persistently saved in NVM.
+ * address and ensures the data is flushed to NVM.
  *
  * This may be more efficient at forcing persistence than a loop that does
  * assignment.
@@ -300,22 +325,48 @@ void *nvms_strcpy(
 void ^nvms_strncpy(
     void ^dest,      // destination in NVM
     const void *src, // source in NVM or volatile memory
-    size_t n         // number of bytes to copy
+    size_t n         // maximum number of bytes to copy
 )
 {
+#ifdef LIBPMEM_H
+    size_t len = strlen(src)+1;     // max number of bytes that will be copied
+    if (len >= n)
+    {
+        pmem_memcpy_nodrain((void*)dest, src, n);
+    }
+    else
+    {
+        pmem_memcpy_nodrain((void*)dest, src, len);
+        pmem_memset_nodrain(((uint8_t*)dest)+len, 0, n-len);
+    }
+#else
     strncpy((void*)dest, src, n);
     nvms_flushi(dest,n);
+#endif
     return dest;
 }
 #else
 void *nvms_strncpy(
     void *dest,      // destination in NVM
     const void *src, // source in NVM or volatile memory
-    size_t n         // number of bytes to copy
+    size_t n         // maximum number of bytes to copy
 )
 {
+#ifdef LIBPMEM_H
+    size_t len = strlen(src)+1;     // max number of bytes that will be copied
+    if (len >= n)
+    {
+        pmem_memcpy_nodrain(dest, src, n);
+    }
+    else
+    {
+        pmem_memcpy_nodrain(dest, src, len);
+        pmem_memset_nodrain(((uint8_t*)dest)+len, 0, n-len);
+    }
+#else
     strncpy(dest, src, n);
     nvms_flushi(dest,n);
+#endif
     return dest;
 }
 #endif //NVM_EXT
@@ -323,9 +374,9 @@ void *nvms_strncpy(
 
 /**
  * This initializes a range of bytes in NVM and ensures they are
- * persistently stored in NVM. It works just like the standard C function
+ * flushed to NVM. It works just like the standard C function
  * memset. It returns the beginning address of the byte range.
- * 
+ *
  * This may be more efficient at forcing persistence than a loop that
  * does assignment.
 
@@ -341,8 +392,12 @@ void ^nvms_set(
     size_t n     // number of bytes to set
 )
 {
+#ifdef LIBPMEM_H
+    pmem_memset_nodrain((void*)dest, c, n);
+#else
     memset((void*)dest, c, n);
     nvms_flushi(dest,n);
+#endif
     return dest;
 }
 #else
@@ -352,8 +407,12 @@ void *nvms_set(
     size_t n     // number of bytes to set
 )
 {
+#ifdef LIBPMEM_H
+    pmem_memset_nodrain(dest, c, n);
+#else
     memset(dest, c, n);
     nvms_flushi(dest,n);
+#endif
     return dest;
 }
 #endif //NVM_EXT
@@ -375,7 +434,10 @@ void nvms_flushi(
         size_t bytes
         )
 {
-    /* Optimize case of just one cache line */
+#ifdef LIBPMEM_H
+    pmem_flush((void*)ptr, bytes);
+#else
+   /* Optimize case of just one cache line */
     if (bytes == 0)
     {
         nvms_flush((uint64_t)ptr);
@@ -403,6 +465,7 @@ void nvms_flushi(
         addr += clsz;
         bytes -= clsz;
     }
+#endif
 }
 #else
 void nvms_flushi(
@@ -410,6 +473,10 @@ void nvms_flushi(
         size_t bytes
         )
 {
+#ifdef LIBPMEM_H
+    pmem_flush((void*)ptr, bytes);
+#else
+
     /* Optimize case of just one cache line */
     if (bytes == 0)
     {
@@ -438,5 +505,6 @@ void nvms_flushi(
         addr += clsz;
         bytes -= clsz;
     }
+#endif
 }
 #endif //NVM_EXT

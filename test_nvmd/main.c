@@ -138,7 +138,7 @@ const int longjump = (10240*2);
  * Current version of branch struct
  */
 persistent struct branch
-USID("a063 6cdd 76e7 8b42 0c32 eeab d43c 829c") 
+USID("a063 6cdd 76e7 8b42 0c32 eeab d43c 829c")
 {
     uint64_t version; // this is the version number changed by upgrade
     unsigned long data[0];
@@ -435,7 +435,7 @@ const nvm_type nvm_type_log = {
 
 /*
  * The following array of pointers to nvm_type structs is used to initialize
- * The USID map. Every nvm_type that contains a USID should be present in this 
+ * The USID map. Every nvm_type that contains a USID should be present in this
  * array.
  */
 const nvm_type *test_usid_types[] = {
@@ -698,7 +698,7 @@ void alloc1(struct counts *cnts)
             cnts->fail += size * sizeof(uint64_t) + sizeof(branch);
             cnts->fail_cnt++;
         }
-        
+
         /* Pretend write ahead log for this operation */
         write_log(cnts, slot, oldsz, newsz);
 
@@ -814,15 +814,15 @@ void *thread_func(void *ctx)
 
     /* Initialize the thread. */
     nvm_thread_init();
-    
-    /* create a jmp_buf for early exit of a thread. On a long jump  
+
+    /* create a jmp_buf for early exit of a thread. On a long jump
      * return to exit this thread. */
     nvm_jump_ctx jctx;
     if (nvm_set_jump(cnts->env, jctx))
     {
         goto end_thread;
     }
-    
+
     /* Map in a log region for this thread to use. This is for testing off
      * region nested transactions.
      */
@@ -969,7 +969,7 @@ main(int argc, char** argv)
     else
     {
         /* If pointer array exists, but not the heap, then clear the pointers.
-         * There is a window where the heap has been deleted, but not the 
+         * There is a window where the heap has been deleted, but not the
          * pointers. This cleans up if we die there. */
         if (rs=>heap == 0)
         {
@@ -1336,7 +1336,7 @@ main(int argc, char** argv)
     else
     {
         /* If pointer array exists, but not the heap, then clear the pointers.
-         * There is a window where the heap has been deleted, but not the 
+         * There is a window where the heap has been deleted, but not the
          * pointers. This cleans up if we die there. */
         if (nvm_heap_get(&rs->heap) == NULL)
         {

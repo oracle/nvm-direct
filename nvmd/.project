@@ -4,6 +4,7 @@
 	<comment></comment>
 	<projects>
 		<project>nvmds</project>
+		<project>libpmem</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

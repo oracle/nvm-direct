@@ -91,6 +91,7 @@ extern void nvm_usid_init(nvm_app_data *ad, uint32_t ents);
  * This is called when the shared library is loaded before main is
  * called. It does the one time initializations needed by the library.
  */
+__attribute__((constructor))
 void nvm_init(void)
 {
     /* Initialize the service layer */

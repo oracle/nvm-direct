@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>test_dmf</name>
+	<name>libpmem</name>
 	<comment></comment>
 	<projects>
-		<project>DirectMappedFile</project>
-		<project>nvmd</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

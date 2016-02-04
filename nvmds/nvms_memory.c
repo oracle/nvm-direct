@@ -1,6 +1,5 @@
-
 /*
-Copyright (c) 2015, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
@@ -46,11 +45,11 @@ SOFTWARE.
       This implements volatile memory services for the NVM library.
 
     NOTES|
-      Memory management services provide 2 classes of volatile memory based on 
+      Memory management services provide 2 classes of volatile memory based on
       the visibility to different threads of execution:
 
-      1. Thread local memory is only accessed by a single thread of execution. 
-      It may be accessible to other threads, but the NVM library does not do 
+      1. Thread local memory is only accessed by a single thread of execution.
+      It may be accessible to other threads, but the NVM library does not do
       that. If the owning thread exits the memory is automatically released
       by the services layer.
 
@@ -63,16 +62,16 @@ SOFTWARE.
 
       All volatile memory used by the NVM library is dynamically allocated from
       one of the two classes. The library does not declare any global or static
-      variables other than those that are const. In order to maintain its 
-      state, it needs the services library to maintain root pointers. The NVM 
-      library allocates a root struct and stores a pointer to it in a root 
+      variables other than those that are const. In order to maintain its
+      state, it needs the services library to maintain root pointers. The NVM
+      library allocates a root struct and stores a pointer to it in a root
       pointer. There are two kinds of root pointers :
 
-      1. Application root pointer: There is only one application root pointer 
+      1. Application root pointer: There is only one application root pointer
       in an application. Every thread sees the same value. It is in application
       global memory.
 
-      3. Thread root pointer: Each thread has its own private thread root 
+      3. Thread root pointer: Each thread has its own private thread root
       pointer. It is in thread local memory so that it disappears if the thread
       calls nvm_fini.
 
@@ -106,8 +105,10 @@ SOFTWARE.
 #include <pthread.h>
 #include <string.h>
 #include "errno.h"
+#include "error.h"
 #include "nvms_misc.h"
 #include "nvms_memory.h"
+#include "libpmem.h"
 
 /* The key for getting the per thread pointer */
 static pthread_key_t nvms_ptr_key;
@@ -125,7 +126,12 @@ void *nvms_app_ptr;
  */
 void nvms_init()
 {
-//    pthread_once(&nvms_proc_once, &nvms_init1);
+#ifdef LIBPMEM_H
+    /* Ensure we have a viable pmem library */
+    if (pmem_check_version(PMEM_MAJOR_VERSION, PMEM_MINOR_VERSION))
+        error(1, 0, "libpmem incompatible: %s", pmem_errormsg());
+#endif
+
     pthread_key_create(&nvms_ptr_key, NULL);
     pthread_key_create(&nvms_alloc_key, NULL);
 }
@@ -157,9 +163,9 @@ void nvms_thread_fini()
 }
 /**
  * This saves a root pointer for this thread. Subsequent calls made from
- * this thread to get the thread root pointer will return this value. The 
+ * this thread to get the thread root pointer will return this value. The
  * root pointer must be a value returned by nvms_thread_alloc.
- * 
+ *
  * @param[in] ptr
  * The root pointer to save.
  */
@@ -172,10 +178,10 @@ void nvms_thread_set_ptr(
         nvms_assert_fail("Error setting per thread pointer");
 }
 /**
- * This returns the root pointer for this thread. If nvms_thread_set_ptr 
+ * This returns the root pointer for this thread. If nvms_thread_set_ptr
  * was never called in this thread, then zero is returned.
- * 
- * @return 
+ *
+ * @return
  * The root pointer or zero if there is none.
  */
 void *nvms_thread_get_ptr()
@@ -187,13 +193,13 @@ void *nvms_thread_get_ptr()
  * This allocates size bytes of zeroed memory that is visible to the
  * calling thread. If the thread exits the memory will be automatically
  * released as if it was passed to nvms_thread_free.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] size
  * amount of memory to allocate in bytes
- * 
- * @return 
+ *
+ * @return
  * A pointer to the newly allocated memory or zero
  */
 void *nvms_thread_alloc(
@@ -210,7 +216,7 @@ void *nvms_thread_alloc(
 }
 /**
  * This releases memory that was previously allocated to the calling thread.
- * 
+ *
  * @param[in] ptr
  * pointer previously returned by nvms_thread_alloc
  */
@@ -257,13 +263,13 @@ void nvms_thread_free(
 /**
  * This allocates size bytes of zeroed memory that is visible to the
  * calling application.
- * 
+ *
  * If there are any errors then an assert fires.
- * 
+ *
  * @param[in] size
  * amount of memory to allocate in bytes
- * 
- * @return 
+ *
+ * @return
  * A pointer to the newly allocated memory
  */
 void *nvms_app_alloc(size_t size)
@@ -275,13 +281,13 @@ void *nvms_app_alloc(size_t size)
     return mem;
 }
 /**
- * This releases memory that was previously allocated to the calling 
+ * This releases memory that was previously allocated to the calling
  * application.
- * 
+ *
  * @param[in] ptr
  * pointer previously returned by nvms_app_alloc
- * 
- * @return 
+ *
+ * @return
  * 1 if successfully freed, and 0 if not freed because some lock could not
  * be acquired.
  */

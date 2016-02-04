@@ -42,8 +42,8 @@ SOFTWARE.
      nvms_region.c - NVM services for NVM region management
 
    DESCRIPTION\n
-     These services are for managing region files that contain the NVM managed 
-     by the library. A region file can be sparse with multiple extents of NVM. 
+     These services are for managing region files that contain the NVM managed
+     by the library. A region file can be sparse with multiple extents of NVM.
      On Linux this will be implemented by OS calls to an NVM file system.
 
  */
@@ -59,6 +59,7 @@ SOFTWARE.
 #include <string.h>
 #include <unistd.h>
 #include "errno.h"
+#include "libpmem.h"
 #include "nvms_misc.h"
 /**
  * This is a struct describing one single region file. A pointer to one of these
@@ -113,31 +114,31 @@ static void nvms_init_file()
     pthread_mutex_init(&nvms_file_mutex, NULL);
 }
 /**
- * This creates a region file and returns a handle to it. Initially it 
- * contains pspace bytes of NVM. An error is returned if there is 
+ * This creates a region file and returns a handle to it. Initially it
+ * contains pspace bytes of NVM. An error is returned if there is
  * insufficient NVM to allocate pspace bytes. The file size is set to vspace
- * so that the file consumes vspace bytes of virtual address space when 
+ * so that the file consumes vspace bytes of virtual address space when
  * mapped. The file contents are zero.
- * 
+ *
  * It is an error if the region file already exists.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] pathname
  * The pathname of the region file to create. It must be in an NVM
  * file system.
- * 
+ *
  * @param[in] vspace
  * The file size for consuming virtual address space when mapped.
- * 
+ *
  * @param[in] pspace
  * Initial physical memory for the base extent, in bytes.
- * 
+ *
  * @param[in] mode
  * This is the same as the mode parameter to the Posix creat system call.
  * See the man page open(2) for the bit definitions.
- * 
- * @return 
+ *
+ * @return
  * Open region file handle or zero on error
  */
 nvms_file *nvms_create_region(
@@ -223,16 +224,16 @@ nvms_file *nvms_create_region(
     return NULL;
 }
 /**
- * This will delete a region returning its NVM to the file system. The 
- * region must not be attached to any process. The region may also be 
- * deleted via the file system. 
- * 
+ * This will delete a region returning its NVM to the file system. The
+ * region must not be attached to any process. The region may also be
+ * deleted via the file system.
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] pathname
  * The name of the region file to destroy.
- * 
- * @return 
+ *
+ * @return
  * One if successful and zero if there is an error.
  */
 int nvms_destroy_region(
@@ -243,19 +244,19 @@ int nvms_destroy_region(
     return ret;
 }
 /**
- * This will return a handle to an existing region file. It is an error if 
+ * This will return a handle to an existing region file. It is an error if
  * the file is not in an NVM file system.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] pathname
  * The name of the region file to open
- * 
- * @return 
+ *
+ * @return
  * Open region file handle or zero on error
  */
 nvms_file *nvms_open_region(
-        const char *pathname // 
+        const char *pathname //
         )
 {
     /* Open the requested file */
@@ -300,13 +301,13 @@ nvms_file *nvms_open_region(
  * region. This will also unmap the entire region file if nvms_map_region was
  * called to map it into this process. After this returns the handle is no
  * longer usable.
- * 
- * If there are any errors then errno is set and the return value is zero.	
- * 
+ *
+ * If there are any errors then errno is set and the return value is zero.
+ *
  * @param[in] handle
  * Open region file handle from open or create region.
- * 
- * @return  
+ *
+ * @return
  * One if successful and zero if there is an error.
  */
 int nvms_close_region(
@@ -340,21 +341,21 @@ int nvms_close_region(
 }
 /**
  * This writes the beginning of a region file from a volatile memory buffer
- * and returns the number of bytes written. It is an error to write beyond 
+ * and returns the number of bytes written. It is an error to write beyond
  * the end of the base extent.
- * 
- * If there are any errors then errno is set and the return value is zero. 
- * 
+ *
+ * If there are any errors then errno is set and the return value is zero.
+ *
  * @param[in] handle
  * Open region file handle from open or create region.
- * 
+ *
  * @param[out] buffer
  * The memory location to write the data from.
- * 
+ *
  * @param[in] bytes
  * The number of bytes to write.
- * 
- * @return 
+ *
+ * @return
  * The number of bytes read. Zero means there is an error.
  */
 size_t nvms_write_region(
@@ -378,24 +379,24 @@ size_t nvms_write_region(
     return 1;
 }
 /**
- * This reads the beginning of a region file into a volatile memory buffer 
+ * This reads the beginning of a region file into a volatile memory buffer
  * and returns the number of bytes read. This could be less than the amount
  * requested if the file is shorter.
- * 
- * If there are any errors then errno is set and the return value is zero. 
- * Note that reading a zero length file will return zero bytes read and 
+ *
+ * If there are any errors then errno is set and the return value is zero.
+ * Note that reading a zero length file will return zero bytes read and
  * errno will still be zero.
- * 
+ *
  * @param[in] handle
  * Open region file handle from open or create region.
- * 
+ *
  * @param[out] buffer
  * The memory location to read the data into.
- * 
+ *
  * @param[in] bytes
  * The number of bytes to read.
- * 
- * @return 
+ *
+ * @return
  * The number of bytes read. Zero means there is an error or zero length
  * file
  */
@@ -423,20 +424,20 @@ size_t nvms_read_region(
 }
 /**
  * Acquire an advisory lock on the region file. If the process already owns
- * a lock on the region then convert the lock mode of the existing lock. A 
- * lock conflict is returned as an EACCES error rather than blocking for 
+ * a lock on the region then convert the lock mode of the existing lock. A
+ * lock conflict is returned as an EACCES error rather than blocking for
  * the conflict to be resolved. The lock is owned by the calling process on
  * behalf of all threads in the process.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] handle
  * Open region file handle from open or create region.
- * 
+ *
  * @param[in] exclusive
  * If true, lock exclusive else lock shared
- * 
- * @return 
+ *
+ * @return
  * One if successful and zero if there is an error such as lock conflict.
  */
 int nvms_lock_region(
@@ -463,39 +464,43 @@ int nvms_lock_region(
     return result == 0;
 }
 /**
- * This read/write maps an open region file into the current process and 
- * returns the virtual address where it is mapped. The attach parameter is 
+ * This read/write maps an open region file into the current process and
+ * returns the virtual address where it is mapped. The attach parameter is
  * the virtual address to attach at. An error is returned if the file cannot
  * be mapped at this address.
- * 
- * The vspace parameter is the same value passed to nvms_create_region. 
- * This much process virtual address space must be  reserved for potential 
- * extension of the file. However, only the first pspace bytes should 
- * actually appear in the address space. Any access to the virtual 
- * addresses between pspace and vspace must result in a memory fault - not 
+ *
+ * The vspace parameter is the same value passed to nvms_create_region.
+ * This much process virtual address space must be  reserved for potential
+ * extension of the file. However, only the first pspace bytes should
+ * actually appear in the address space. Any access to the virtual
+ * addresses between pspace and vspace must result in a memory fault - not
  * NVM allocation.
- * 
- * The other extents of the region file will be mapped by calls to 
+ *
+ * It is an error (ENODEV) to map a file that is not on NVM that is directly
+ * mapped into our address space. This error can be suppressed by setting
+ * environment variable PMEM_IS_PMEM_FORCE=1, if using libpmem from Intel.
+ *
+ * The other extents of the region file will be mapped by calls to
  * nvms_map_extent.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] handle
  * Open region file handle from open or create region.
- * 
+ *
  * @param[in] attach
- * This is the virtual address where the region file will be mapped 
- * into the calling process. It may be zero to let the OS choose the 
+ * This is the virtual address where the region file will be mapped
+ * into the calling process. It may be zero to let the OS choose the
  * address.
- * 
+ *
  * @param[in] vspace
  * This is the amount of virtual address space to be consumed by the region.
- * 
+ *
  * @param[in] pspace
  * This is the current size of the base extent, and the amount of memory
  * to be mapped.
- * 
- * @return 
+ *
+ * @return
  * Address attached at if successful, or NULL if there is an error.
  */
 void *nvms_map_region(
@@ -532,6 +537,19 @@ void *nvms_map_region(
         return 0;
     if (attach && base != attach)
         nvms_assert_fail("fixed mapping not fixed");
+
+#ifdef LIBPMEM_H
+    /* Return an error if the file is not an NVM file that has its NVM mapped
+     * into our address space. This error can be disabled for testing by
+     * setting environment variable PMEM_IS_PMEM_FORCE=1. This presumes that
+     * if the first 1K of a file is NVM then the whole file is. */
+    if (!pmem_is_pmem(base, 1024))
+    {
+        munmap(base, vspace); // remove the useless mapping
+        errno = ENODEV;
+        return 0;
+    }
+#endif
 
     /* Only allow access to base extent for now. */
     if (mprotect(base+pspace, vspace-pspace, PROT_NONE))
@@ -578,19 +596,19 @@ void *nvms_region_addr(
  * This adds NVM to an open region file. This must be done before the
  * address range can be mapped into any application process. The NVM to
  * add must be within the vspace parameter passed to nvms_create_region.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param handle
  * Open region file handle from open or create region.
- * 
+ *
  * @param offset
  * The offset into the region file of the first NVM byte to add.
- * 
+ *
  * @param len
  * The number of bytes to add to the region file.
- * 
- * @return 
+ *
+ * @return
  * One if successful and zero if it fails.
  */
 int nvms_alloc_range(
@@ -650,25 +668,25 @@ int nvms_alloc_range(
  * This maps a range of NVM into the process address space. The NVM must
  * be previously added to the file by nvms_alloc_range. The base extent
  * must have been mapped by nvm_map_region.
- * 
+ *
  * It would be an indication of corruption if there was no NVM allocated
- * to the specified portion of the region file. It would be an error if  
- * offset and offset+len are not within the vspace parameter passed to 
+ * to the specified portion of the region file. It would be an error if
+ * offset and offset+len are not within the vspace parameter passed to
  * nvms_map_region,
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] handle
  * Open region file handle from open or create region.
- * 
+ *
  * @param[in] offset
  * The offset into the region file of the first NVM byte to map.
- * 
+ *
  * @param[in] len
  * The amount of NVM to add to the current process address space.
- * 
+ *
  * @return
- * The virtual address of the memory or zero if there is an error. 
+ * The virtual address of the memory or zero if there is an error.
  */
 void *nvms_map_range(
         nvms_file *fh,
@@ -712,18 +730,18 @@ void *nvms_map_range(
  * must be within the vspace parameter passed to nvms_create_region. It is
  * not an error to unmap a range that is not mapped. This does not make
  * the virtual address space available for other region mappings.
- * 
+ *
  * @param handle
  * Open region file handle from open or create region.
- * 
+ *
  * @param offset
  * The offset into the region file of the first NVM byte to unmap.
- * 
+ *
  * @param len
  * The amount of NVM to remove from the current process address space.
- * 
- * @return 
- * The virtual address of the memory or zero if there is an error. 
+ *
+ * @return
+ * The virtual address of the memory or zero if there is an error.
  */
 void *nvms_unmap_range(
         nvms_file *fh,
@@ -798,19 +816,19 @@ int nvms_unmap_region(
 /**
  * This frees NVM from an open region file. The address range must not be
  * mapped into any application process when this is called.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param handle
  * Open region file handle from open or create region.
- * 
+ *
  * @param offset
  * The offset into the region file of the first NVM byte to free.
- * 
+ *
  * @param len
  * The number of bytes to free from the region file.
- * 
- * @return 
+ *
+ * @return
  * One if successful and zero if it fails.
  */
 int nvms_free_range(
@@ -838,7 +856,7 @@ int nvms_free_range(
 
     /* Create a hole in the file for the given range. */
     //TODO when running Linix 2.6.38 or better uncomment the following:
-    //    if (fallocate(handle->osfd, 
+    //    if (fallocate(handle->osfd,
     //            FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
     //            offset, len))
     //        return 0;
@@ -851,8 +869,8 @@ int nvms_free_range(
  * reasonably unique within the server. For example it could be the
  * current process id in the upper 32 bits and microseconds since boot
  * in the lower 32 bits.
- * 
- * @return 
+ *
+ * @return
  * A server unique id.
  */
 uint64_t nvms_unique_id()

@@ -28,26 +28,23 @@
 								<option defaultValue="gnu.c.optimization.level.none" id="gnu.c.compiler.exe.debug.option.optimization.level.2130323861" name="Optimization Level" superClass="gnu.c.compiler.exe.debug.option.optimization.level" valueType="enumerated"/>
 								<option id="gnu.c.compiler.exe.debug.option.debugging.level.1460695327" name="Debug Level" superClass="gnu.c.compiler.exe.debug.option.debugging.level" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.1024366922" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/onvms}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/onvm}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/DirectMappedFile}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmd}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmds}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/DirectMappedFile}&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.dialect.std.1740805050" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" value="gnu.c.compiler.dialect.default" valueType="enumerated"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1483577918" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.linker.exe.debug.1569096301" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.exe.debug">
 								<option id="gnu.c.link.option.libs.821217688" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
-									<listOptionValue builtIn="false" value="dmf"/>
-									<listOptionValue builtIn="false" value="nvmd"/>
+									<listOptionValue builtIn="false" srcPrefixMapping="" srcRootPath="" value="nvmds"/>
+									<listOptionValue builtIn="false" srcPrefixMapping="" srcRootPath="" value="dmf"/>
 									<listOptionValue builtIn="false" value="rt"/>
 									<listOptionValue builtIn="false" value="pthread"/>
 								</option>
 								<option id="gnu.c.link.option.paths.2048695912" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmds/DebugX}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/DirectMappedFile/Debug}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/DirectMappedFile/DebugX}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmd/DebugX}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.1543492635" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
@@ -57,10 +54,8 @@
 							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.exe.debug.1592476053" name="GCC C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.exe.debug"/>
 							<tool id="cdt.managedbuild.tool.gnu.assembler.exe.debug.1773597519" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.exe.debug">
 								<option id="gnu.both.asm.option.include.paths.957135524" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/onvms}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/onvm}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmds}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/DirectMappedFile}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmd}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1173758040" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
@@ -77,18 +72,12 @@
 						<entry flags="RESOLVED" kind="libraryFile" name="dmf" srcPrefixMapping="" srcRootPath=""/>
 					</externalSetting>
 				</externalSettings>
-				<externalSettings containerId="nvmd;cdt.managedbuild.config.gnu.so.debug.245027014.1958352163" factoryId="org.eclipse.cdt.core.cfg.export.settings.sipplier">
-					<externalSetting>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/onvm"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/onvm/DebugX"/>
-						<entry flags="RESOLVED" kind="libraryFile" name="onvm" srcPrefixMapping="" srcRootPath=""/>
-					</externalSetting>
-				</externalSettings>
+				<externalSettings containerId="nvmd;cdt.managedbuild.config.gnu.so.debug.245027014.1958352163" factoryId="org.eclipse.cdt.core.cfg.export.settings.sipplier"/>
 				<externalSettings containerId="nvmds;cdt.managedbuild.config.gnu.lib.debug.1137774631.310056" factoryId="org.eclipse.cdt.core.cfg.export.settings.sipplier">
 					<externalSetting>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/onvms"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/onvms/DebugX"/>
-						<entry flags="RESOLVED" kind="libraryFile" name="onvms" srcPrefixMapping="" srcRootPath=""/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="includePath" name="/nvmds"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="libraryPath" name="/nvmds/DebugX"/>
+						<entry flags="RESOLVED" kind="libraryFile" name="nvmds" srcPrefixMapping="" srcRootPath=""/>
 					</externalSetting>
 				</externalSettings>
 			</storageModule>
@@ -119,9 +108,21 @@
 							<tool id="cdt.managedbuild.tool.gnu.c.compiler.exe.release.1573154755" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.exe.release">
 								<option defaultValue="gnu.c.optimization.level.most" id="gnu.c.compiler.exe.release.option.optimization.level.162427024" name="Optimization Level" superClass="gnu.c.compiler.exe.release.option.optimization.level" valueType="enumerated"/>
 								<option id="gnu.c.compiler.exe.release.option.debugging.level.239882162" name="Debug Level" superClass="gnu.c.compiler.exe.release.option.debugging.level" value="gnu.c.debugging.level.none" valueType="enumerated"/>
+								<option id="gnu.c.compiler.option.include.paths.507607883" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/nvmd}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/DirectMappedFile}&quot;"/>
+								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1410611916" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.linker.exe.release.1259968588" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.exe.release">
+								<option id="gnu.c.link.option.libs.651692453" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
+									<listOptionValue builtIn="false" value="dmf"/>
+									<listOptionValue builtIn="false" value="pthread"/>
+									<listOptionValue builtIn="false" value="rt"/>
+								</option>
+								<option id="gnu.c.link.option.paths.306792049" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/DirectMappedFile/DebugX}&quot;"/>
+								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.171700337" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>

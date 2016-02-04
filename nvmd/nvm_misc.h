@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
@@ -368,13 +368,13 @@ extern "C"
         void ^dest,      // destination in NVM
         const void *src, // source in NVM or volatile memory
         size_t n         // number of bytes to copy
-    )  { return nvms_strcpy(dest, src); }
+    )  { return nvms_strncpy(dest, src, n); }
     #else
     static inline void *nvm_strncpy(
         void *dest,      // destination in NVM
         const void *src, // source in NVM or volatile memory
         size_t n         // number of bytes to copy
-    )  { return nvms_strcpy(dest, src); }
+    )  { return nvms_strncpy(dest, src, n); }
     #endif //NVM_EXT
 
     /**

@@ -489,6 +489,8 @@ again:;
         dmf_delete(fname);
         dmf = dmf_create(fname, BLOCK_SIZE, FILE_SIZE, FILE_SIZE*2, NULL,
                 THREADS*2, 0777);
+        if (!dmf)
+            error(1, errno, "could not create direct mapped file");
         test_check(dmf, "Creation complete");
     } else {
         test_check(dmf, "Opened");
