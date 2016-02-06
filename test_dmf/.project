@@ -5,6 +5,7 @@
 	<projects>
 		<project>DirectMappedFile</project>
 		<project>nvmd</project>
+		<project>nvmds</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

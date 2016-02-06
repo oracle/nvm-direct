@@ -1,6 +1,6 @@
 
 /*
-Copyright (c) 2015, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
@@ -47,90 +47,90 @@ SOFTWARE.
       atomically update multiple NVM locations.
 
     NOTES\n
-      Unlike volatile memory, NVM retains its contents through a power failure 
-      or processor reset. This can happen at any time. If it happens in the 
-      middle of updating a data structure such as a doubly linked list, then a 
+      Unlike volatile memory, NVM retains its contents through a power failure
+      or processor reset. This can happen at any time. If it happens in the
+      middle of updating a data structure such as a doubly linked list, then a
       mechanism is needed to restore the linked list to a consistent state. This
       problem can also arise when an application process throws an error or dies
       while manipulating persistent data structures.
 
       A transaction mechanism is needed to atomically modify an arbitrary set of
-      locations in NVM. Before a transactional store to NVM, the old value of 
-      the location will be saved in an NVM transaction data structure. This is 
+      locations in NVM. Before a transactional store to NVM, the old value of
+      the location will be saved in an NVM transaction data structure. This is
       the undo to apply if the transaction aborts or partially rolls back. When
-      all stores for the transaction are complete, the undo is deleted thus 
-      committing the transaction. The application may choose to abort a 
-      transaction applying all the undo generated so far. An application may 
-      also create a savepoint and later apply all undo generated after the 
+      all stores for the transaction are complete, the undo is deleted thus
+      committing the transaction. The application may choose to abort a
+      transaction applying all the undo generated so far. An application may
+      also create a savepoint and later apply all undo generated after the
       savepoint was created. This is a partial rollback of the transaction.
 
-      In addition to the above description of saving old values, we need the 
-      ability to associate NVM locks with the transaction. A multi-threaded 
-      application uses NVM locks to ensure only one thread at a time is 
-      modifying an NVM data structure. Such a lock needs to be held until any 
-      undo that modifies the data structure is either applied by rollback/abort 
-      or discarded by transaction commit. Thus the lock is associated with the 
-      transaction rather than the thread that acquired the lock. Since the 
+      In addition to the above description of saving old values, we need the
+      ability to associate NVM locks with the transaction. A multi-threaded
+      application uses NVM locks to ensure only one thread at a time is
+      modifying an NVM data structure. Such a lock needs to be held until any
+      undo that modifies the data structure is either applied by rollback/abort
+      or discarded by transaction commit. Thus the lock is associated with the
+      transaction rather than the thread that acquired the lock. Since the
       transactions survive process death the locks need to be in NVM just as
       the transaction data.
 
-      When an application attaches to an NVM region, the region is checked to 
-      see if there are any transactions that need recovery. Recovery is 
-      completed before the attach function returns to the application. This 
-      ensures the application only sees a consistent state in NVM after a 
-      failure of the previous process to attach to the region. If recovery 
-      cannot be completed due to some error, then the attach fails. Note that 
-      this means a transaction can only modify one NVM region at a time because 
-      recovery happens when the region is attached and regions are attached one 
-      at a time. It is not possible to atomically modify data in two different 
+      When an application attaches to an NVM region, the region is checked to
+      see if there are any transactions that need recovery. Recovery is
+      completed before the attach function returns to the application. This
+      ensures the application only sees a consistent state in NVM after a
+      failure of the previous process to attach to the region. If recovery
+      cannot be completed due to some error, then the attach fails. Note that
+      this means a transaction can only modify one NVM region at a time because
+      recovery happens when the region is attached and regions are attached one
+      at a time. It is not possible to atomically modify data in two different
       regions.
 
 \par  On abort operations
 
-      An application can create an operation to be executed if the active 
-      transaction rolls back through the current point in the undo. This 
-      creates an undo record with a pointer to a persistent application 
-      function and a persistent struct to pass to the function. If the undo is 
-      applied, the function is called in a new nested transaction. The nested 
+      An application can create an operation to be executed if the active
+      transaction rolls back through the current point in the undo. This
+      creates an undo record with a pointer to a persistent application
+      function and a persistent struct to pass to the function. If the undo is
+      applied, the function is called in a new nested transaction. The nested
       transaction is committed when the function returns.
 
-      Creating an on abort operation returns a pointer to the struct in the 
-      undo record so that arguments to the function can be modified later. It 
-      is common to have a nested transaction do a transactional store into the 
-      on abort operation so that it does nothing unless the nested transaction 
-      commits. This can be used to implement logical undo to reverse the 
+      Creating an on abort operation returns a pointer to the struct in the
+      undo record so that arguments to the function can be modified later. It
+      is common to have a nested transaction do a transactional store into the
+      on abort operation so that it does nothing unless the nested transaction
+      commits. This can be used to implement logical undo to reverse the
       effects of a nested transaction that committed.
 
-      Note that the function must not signal any errors, exit the process, or 
-      abort the nested transaction. This could result in an NVM region that 
-      could never be attached since every time recovery is attempted it would 
+      Note that the function must not signal any errors, exit the process, or
+      abort the nested transaction. This could result in an NVM region that
+      could never be attached since every time recovery is attempted it would
       fail. Thus the only errors must be the result of serious NVM corruption.
 
-      Note that the function could be called at recovery time so it must not 
-      attempt to access any volatile data structures created by the process 
+      Note that the function could be called at recovery time so it must not
+      attempt to access any volatile data structures created by the process
       that created the on abort operation.
 
 \par  On commit operations
 
-      An application can create an on commit operation using a mechanism that 
+      An application can create an on commit operation using a mechanism that
       is the same as creating an on abort operation except that the undo record
-      does nothing if rolled back. All the on commit operations in a 
-      transaction are executed after the transaction has committed and all its 
-      locks released. While undo is applied in the reverse of the order it is 
-      created in, on commit operations are executed in the same order as they 
-      are created. Each on commit function is called in its own nested 
-      transaction that is committed when it returns. 
+      does nothing if rolled back. All the on commit operations in a
+      transaction are executed after the transaction has committed and all its
+      locks released. While undo is applied in the reverse of the order it is
+      created in, on commit operations are executed in the same order as they
+      are created. Each on commit function is called in its own nested
+      transaction that is committed when it returns.
 
-      An on commit operation must not signal any errors, exit the process, or 
-      abort the nested transaction. This would make it impossible to complete 
-      the commit of a committed transaction. If an error is signaled or the 
-      nested transaction aborts, the application process exits. Recovery will 
-      first rollback the nested transaction then resume commit of the parent 
-      transaction beginning with the on commit operation that failed. If it 
-      fails again the region cannot be attached. 
+      An on commit operation must not signal any errors, exit the process, or
+      abort the nested transaction. This would make it impossible to complete
+      the commit of a committed transaction. If an error is signaled or the
+      nested transaction aborts, the application process exits. Recovery will
+      first rollback the nested transaction then resume commit of the parent
+      transaction beginning with the on commit operation that failed. If it
+      fails again the region cannot be attached.
 
-      Note that the function could be called at recovery time so it must not 
-      attempt to access any volatile data structures created by the process 
+      Note that the function could be called at recovery time so it must not
+      attempt to access any volatile data structures created by the process
       that created the on commit operation.
 
 \par  On unlock operations
@@ -144,7 +144,7 @@ SOFTWARE.
       like an nvm_mutex unlock record and applied while previously acquired
       locks are still held. Each on unlock function is called in its own nested
       transaction that is committed when it returns.
-     
+
       An on unlock operation must not signal any errors, exit the process, or
       abort the nested transaction. This would make it impossible to complete
       the commit or abort of a transaction. If an error is signaled or the
@@ -152,55 +152,55 @@ SOFTWARE.
       first rollback the nested transaction then resume commit or abort of the
       parent transaction beginning with the on unlock operation that failed.
       If it fails again the region cannot be attached.
-      
+
       Note that the function could be called at recovery time so it must not
       attempt to access any volatile data structures created by the process
       that created the on commit operation.
 
 \par  Nested transactions
-      
-      Nested transactions suspend operation of the current transaction so that 
+
+      Nested transactions suspend operation of the current transaction so that
       all transactional operations happen in the nested transaction. The nested
-      transaction can commit or abort independently from its parent 
-      transaction. When it commits its changes are persistent even if the 
-      parent transaction aborts. The parent of a nested transaction can itself 
+      transaction can commit or abort independently from its parent
+      transaction. When it commits its changes are persistent even if the
+      parent transaction aborts. The parent of a nested transaction can itself
       be a nested transaction.
 
-      Locks acquired by a nested transaction are released when the nested 
-      transaction commits/aborts. This makes nested transactions useful for 
+      Locks acquired by a nested transaction are released when the nested
+      transaction commits/aborts. This makes nested transactions useful for
       avoiding deadlocks and for reducing the time a lock is held so that there
-      is less contention. For example allocation from a heap is done in a 
-      nested transaction. An on abort operation is created in the parent 
-      transaction before the nested transaction is started. If the allocation 
-      commits, but the parent transaction aborts, then the on abort operation 
+      is less contention. For example allocation from a heap is done in a
+      nested transaction. An on abort operation is created in the parent
+      transaction before the nested transaction is started. If the allocation
+      commits, but the parent transaction aborts, then the on abort operation
       undoes the committed allocation.
 
-      On commit operations created during a nested transaction are executed 
-      when the nested transaction commits. The parent transaction does not 
-      become the current transaction until all the on commit operations 
+      On commit operations created during a nested transaction are executed
+      when the nested transaction commits. The parent transaction does not
+      become the current transaction until all the on commit operations
       complete and the nested transaction code block is exited.
 
 \par  Explicit Commit/Abort
-      
-      The current transaction can be explicitly committed or aborted by calling 
-      a library function. . The abort function returns when all undo has been 
-      applied up to the beginning of the transaction. The commit function 
-      returns when all on commit operations have completed. In either case all 
+
+      The current transaction can be explicitly committed or aborted by calling
+      a library function. . The abort function returns when all undo has been
+      applied up to the beginning of the transaction. The commit function
+      returns when all on commit operations have completed. In either case all
       locks acquired by the current transaction are released.
- 
-      Once a transaction is explicitly committed/aborted it is still the 
-      current transaction, but it cannot be used for any more transactional 
-      operations. Explicit commit/abort of a nested transaction does not make 
-      the parent transaction current until the nested transaction is ended. A 
-      transaction is defined by a specially annotated code block. The 
-      transaction stays current until the code block is exited either by an 
-      explicit transfer, executing  out the bottom of the block, or an NVM 
+
+      Once a transaction is explicitly committed/aborted it is still the
+      current transaction, but it cannot be used for any more transactional
+      operations. Explicit commit/abort of a nested transaction does not make
+      the parent transaction current until the nested transaction is ended. A
+      transaction is defined by a specially annotated code block. The
+      transaction stays current until the code block is exited either by an
+      explicit transfer, executing  out the bottom of the block, or an NVM
       longjmp to an NVM setjmp outside the code block.
 
-      There is a library routine to report the current transaction nesting 
-      level and the current transaction status. A current transaction can be 
-      active, committed, or aborted. A nesting level of 0 means there is no 
-      current transaction. A nesting level of 1 means the base transaction is 
+      There is a library routine to report the current transaction nesting
+      level and the current transaction status. A current transaction can be
+      active, committed, or aborted. A nesting level of 0 means there is no
+      current transaction. A nesting level of 1 means the base transaction is
       current.
 
  */
@@ -240,20 +240,20 @@ static void nvm_drop_undo(nvm_transaction *tx, nvm_undo_blk *ub,
 static void nvm_add_oper(nvm_transaction *tx, nvm_opcode op, size_t bytes);
 #endif //NVM_EXT
 /**
- * This begins a new transaction. If there is no current transaction then 
- * a new base transaction is started in the indicated NVM region. If there 
- * is a current transaction then a nested transaction is begun. For 
+ * This begins a new transaction. If there is no current transaction then
+ * a new base transaction is started in the indicated NVM region. If there
+ * is a current transaction then a nested transaction is begun. For
  * beginning a nested transaction the region descriptor can be zero to
  * begin it in the same region as the current transaction. If it is not
  * zero and not the same as the current transaction then the nested
  * transaction is an off region nested transaction in that region.
- * 
- * This is not normally called directly from the application. Normally "@" 
+ *
+ * This is not normally called directly from the application. Normally "@"
  * is used to begin a transactional code block. The precompiler inserts
  * the appropriate nvm_txbegin call at the beginning of the code block.
- * 
+ *
  * If there are already too many allocated transactions, this call may have
- * to block until some other transaction commits or aborts. Note that a 
+ * to block until some other transaction commits or aborts. Note that a
  * nested transaction in the same region as the current transaction uses
  * the same transaction slot as the base transaction so it never sleeps
  * waiting for a slot. An off region nested transaction has to allocate
@@ -261,11 +261,11 @@ static void nvm_add_oper(nvm_transaction *tx, nvm_opcode op, size_t bytes);
  *
  * An assert is fired if there is an error such as passing a region
  * descriptor of zero when starting a base transaction.
- * 
+ *
  * @param[in] region
  * This is the region descriptor returned by nvm_create_region or
  * nvm_attach_region for the region to modify in the transaction.
- * 
+ *
  * @param[in] region
  * This is the region descriptor returned by nvm_create_region or
  * nvm_attach_region for the region to modify in the transaction.
@@ -413,7 +413,7 @@ void nvm_txbegin(
         /* Get the address to store the data for the operation. */
         nvm_nested ^nt = (nvm_nested ^)(tx=>undo_data - size);
 
-        /* Initialize the contents of the nvm_nested. Set the link to the 
+        /* Initialize the contents of the nvm_nested. Set the link to the
          * other nested transactions in this transaction, and the new state */
         nt=>undo_ops ~= tx=>undo_ops;
         nt=>prev ~= tx=>nstd_last;
@@ -428,7 +428,7 @@ void nvm_txbegin(
          * the head of the list, we atomically start the nested transaction. */
         tx=>nstd_last ~= nt;
         nvm_persist();
-    
+
         /* 2 from nvm_add_oper and 1 here. */
         td->persist_tx += 3;
 
@@ -587,7 +587,7 @@ void nvm_txbegin(
         /* Get the address to store the data for the operation. */
         nvm_nested *nt = (nvm_nested *)(tx->undo_data - size);
 
-        /* Initialize the contents of the nvm_nested. Set the link to the 
+        /* Initialize the contents of the nvm_nested. Set the link to the
          * other nested transactions in this transaction, and the new state */
         nt->undo_ops = tx->undo_ops;
         nvm_nested_set(&nt->prev, nvm_nested_get(&tx->nstd_last));
@@ -614,17 +614,17 @@ void nvm_txbegin(
 #endif //NVM_EXT
 
 /**
- * This ends the current transaction. If this is a nested transaction then 
- * the parent becomes the current transaction. If this is a base 
- * transaction without a parent, then the transaction slot is made 
- * available for a new transaction, and there is no current transaction any 
+ * This ends the current transaction. If this is a nested transaction then
+ * the parent becomes the current transaction. If this is a base
+ * transaction without a parent, then the transaction slot is made
+ * available for a new transaction, and there is no current transaction any
  * more.
- * 
- * This is not normally called directly from the application. Normally the 
- * preprocessor inserts the nvm_txend call at the end of the transaction 
- * code block or before any transfer of control out of the transaction code 
+ *
+ * This is not normally called directly from the application. Normally the
+ * preprocessor inserts the nvm_txend call at the end of the transaction
+ * code block or before any transfer of control out of the transaction code
  * block.
- * 
+ *
  * If the current transaction is not committed or aborted then it is committed.
  */
 #ifdef NVM_EXT
@@ -633,7 +633,7 @@ void nvm_txend@()
     /* get app and thread data pointers */
     nvm_app_data *ad = nvm_get_app_data();
     nvm_thread_data *td = nvm_get_thread_data();
-    
+
     /* Verify the current base transaction is valid. */
     nvm_transaction ^tx = td->transaction;
     if (tx == 0)
@@ -665,14 +665,14 @@ void nvm_txend@()
          * but it is no longer the current transaction. */
         tx=>nstd_last ~= nt=>prev;
 
-        /* Adjust the transient data to remove the undo record for the nested 
+        /* Adjust the transient data to remove the undo record for the nested
          * transaction */
         tx=>undo_ops--;
         tx=>undo_bytes += sizeof(nvm_nested);
         tx=>undo_data += sizeof(nvm_nested);
 
         /* Persistently remove this operation from the transaction. This might
-         * leave the first block of undo empty. This is not a problem and 
+         * leave the first block of undo empty. This is not a problem and
          * can save an immediate undo block allocation */
         ub=>count~--;
         nvm_persist();
@@ -724,7 +724,7 @@ void nvm_txend@()
     nvm_persist();
     td->persist_tx++;
 
-    /* Return the transaction to the freelist if idle. Note that the freelist 
+    /* Return the transaction to the freelist if idle. Note that the freelist
      * is all transient because it is rebuilt at region recovery. */
     if (tx=>state == nvm_idle_state)
     {
@@ -772,7 +772,7 @@ void nvm_txend@()
     }
 }
 #else
-void nvm_txend()    
+void nvm_txend()
 {
     /* get app and thread data pointers */
     nvm_app_data *ad = nvm_get_app_data();
@@ -812,14 +812,14 @@ void nvm_txend()
         nvm_nested_set(&tx->nstd_last, nvm_nested_get(&nt->prev));
         nvm_flush1(&tx->nstd_last);
 
-        /* Adjust the transient data to remove the undo record for the nested 
+        /* Adjust the transient data to remove the undo record for the nested
          * transaction */
         tx->undo_ops--;
         tx->undo_bytes += sizeof(nvm_nested);
         tx->undo_data += sizeof(nvm_nested);
 
         /* Persistently remove this operation from the transaction. This might
-         * leave the first block of undo empty. This is not a problem and 
+         * leave the first block of undo empty. This is not a problem and
          * can save an immediate undo block allocation */
         ub->count--;
         nvm_flush1(&ub->count);
@@ -873,7 +873,7 @@ void nvm_txend()
     nvm_persist();
     td->persist_tx++;
 
-    /* Return the transaction to the freelist if idle. Note that the freelist 
+    /* Return the transaction to the freelist if idle. Note that the freelist
      * is all transient because it is rebuilt at region recovery. */
     if (tx->state == nvm_idle_state)
     {
@@ -923,15 +923,15 @@ void nvm_txend()
 #endif //NVM_EXT
 
 /**
- * This returns the current transaction nesting depth. If there is no 
- * current transaction then the depth is zero. If the current transaction 
- * is the base transaction then the depth is one. If the current 
- * transaction is a nested transaction then the depth is two or more 
- * depending on how deep it is nested. There is no specific limit on 
- * nesting, but there is a limit on the amount of undo retained for a base 
- * transaction plus all of its nested children. 
- * 
- * @return 
+ * This returns the current transaction nesting depth. If there is no
+ * current transaction then the depth is zero. If the current transaction
+ * is the base transaction then the depth is one. If the current
+ * transaction is a nested transaction then the depth is two or more
+ * depending on how deep it is nested. There is no specific limit on
+ * nesting, but there is a limit on the amount of undo retained for a base
+ * transaction plus all of its nested children.
+ *
+ * @return
  * The current transaction nesting depth
  */
 int nvm_txdepth()
@@ -940,50 +940,50 @@ int nvm_txdepth()
     return td ? td->txdepth : 0;
 }
 /**
- * This returns the status of the current transaction or one of its 
- * parents. If the parent value is zero then the current transaction is 
- * being queried. If the parent value is 1 then the immediate parent is 
- * being queried. If greater than 1 then an earlier parent is being 
+ * This returns the status of the current transaction or one of its
+ * parents. If the parent value is zero then the current transaction is
+ * being queried. If the parent value is 1 then the immediate parent is
+ * being queried. If greater than 1 then an earlier parent is being
  * queried. Negative values are an error.
- * 
+ *
  * The return value is one of the following:
- * 
- * - NVM_TX_NONE: There is no such transaction. The value of parent is 
+ *
+ * - NVM_TX_NONE: There is no such transaction. The value of parent is
  * greater than or equal to the current transaction depth.
- * 
- * - NVM_TX_ACTIVE: The transaction is active. Its fate is not yet 
+ *
+ * - NVM_TX_ACTIVE: The transaction is active. Its fate is not yet
  * resolved.
- * 
- * - NVM_TX_ROLLBACK: The transaction is still active but is currently 
- * being rolled back to a savepoint. Once the rollback completes the 
+ *
+ * - NVM_TX_ROLLBACK: The transaction is still active but is currently
+ * being rolled back to a savepoint. Once the rollback completes the
  * transaction will return to status active.
- * 
- * - NVM_TX_ABORTING: The transaction is in the middle of aborting. 
- * Undo application is not yet complete. The transaction will eventually 
+ *
+ * - NVM_TX_ABORTING: The transaction is in the middle of aborting.
+ * Undo application is not yet complete. The transaction will eventually
  * become aborted when all undo is applied.
- * 
- * - NVM_TX_ABORTED: The transaction was successfully aborted, but 
- * execution is still within the transaction code block. In other words 
+ *
+ * - NVM_TX_ABORTED: The transaction was successfully aborted, but
+ * execution is still within the transaction code block. In other words
  * nvm_txend() has not yet been called.
- * 
- * - NVM_TX_COMMITTING: The transaction is in the middle of committing. 
- * It may be releasing locks or calling oncommit operations as part of 
- * committing. The transaction will eventually become committed when all 
+ *
+ * - NVM_TX_COMMITTING: The transaction is in the middle of committing.
+ * It may be releasing locks or calling oncommit operations as part of
+ * committing. The transaction will eventually become committed when all
  * oncommit operations are complete.
- * 
- * - NVM_TX_COMMITTED: The transaction was successfully committed, but 
- * execution is still within the transaction code block. In other words 
+ *
+ * - NVM_TX_COMMITTED: The transaction was successfully committed, but
+ * execution is still within the transaction code block. In other words
  * nvm_txend() has not yet been called.
- * 
- * Note that the callback function for an onabort or oncommit operation is 
+ *
+ * Note that the callback function for an onabort or oncommit operation is
  * called within its own nested transaction. Thus the status of the current
- * transaction will always be active when the function is entered. Pass a 
- * count of 1 to find out the status of the transaction that the operation 
- * is part of. 
- * 
+ * transaction will always be active when the function is entered. Pass a
+ * count of 1 to find out the status of the transaction that the operation
+ * is part of.
+ *
  * @param[in] parent
  * How many parents back to report
- * 
+ *
  * @return
  * One of the NVM_TX_* values giving the transaction state.
  */
@@ -1115,7 +1115,7 @@ int nvm_txstatus(
  * This returns the region descriptor for the current transaction. It is
  * useful for on abort or on commit callbacks to know which region they
  * are in. It must be called from within a transaction.
- * 
+ *
  * @return region descriptor of current transaction.
  */
 #ifdef NVM_EXT
@@ -1169,10 +1169,10 @@ uint16_t nvm_txslot()
  * data. Note this does not need to be persistently atomic because the undo
  * free list is rebuilt if this application dies. However it does need to
  * protect against this thread dying.
- * 
+ *
  * @param tx
  * The transaction that needs another block of undo
- * 
+ *
  * @param td
  * The thread data for the thread that owns the transaction.
  */
@@ -1197,7 +1197,7 @@ void nvm_add_undo@(nvm_transaction ^tx, nvm_thread_data *td)
     /* take the nvm_undo_blk on the head of the free list */
     nvm_undo_blk ^ub = ttd->free_undo;
 
-    /* If the count of undo records is not zero then something awful has 
+    /* If the count of undo records is not zero then something awful has
      * happened and there is an in use block on the freelist. */
     if (ub=>count != 0)
         nvms_corruption("Free undo block contains undo", ub, tx);
@@ -1220,7 +1220,7 @@ void nvm_add_undo@(nvm_transaction ^tx, nvm_thread_data *td)
     /* Release the mutex,committing the allocation */
     nvms_unlock_mutex(ttd->undo_mutex);
 
-    /* Allocating the first operation would consume the first uint64_t in the 
+    /* Allocating the first operation would consume the first uint64_t in the
      * data area for the first Operation. Save the initial number of bytes
      * of data available and the address at the end of that space. There is
      * no need to force these to be persistent since they are transient. */
@@ -1250,7 +1250,7 @@ void nvm_add_undo(nvm_transaction *tx, nvm_thread_data *td)
     nvm_undo_blk *ub = ttd->free_undo;
     nvm_verify(ub, shapeof(nvm_undo_blk)); // verify it is a valid undo block
 
-    /* If the count of undo records is not zero then something awful has 
+    /* If the count of undo records is not zero then something awful has
      * happened and there is an in use block on the freelist. */
     if (ub->count != 0)
         nvms_corruption("Free undo block contains undo", ub, tx);
@@ -1273,7 +1273,7 @@ void nvm_add_undo(nvm_transaction *tx, nvm_thread_data *td)
     /* Release the mutex,committing the allocation */
     nvms_unlock_mutex(ttd->undo_mutex);
 
-    /* Allocating the first operation would consume the first uint64_t in the 
+    /* Allocating the first operation would consume the first uint64_t in the
      * data area for the first Operation. Save the initial number of bytes
      * of data available and the address at the end of that space. There is
      * no need to force these to be persistent since they are transient. */
@@ -1288,13 +1288,13 @@ void nvm_add_undo(nvm_transaction *tx, nvm_thread_data *td)
  * data. Note this does not need to be persistently atomic because the undo
  * free list is rebuilt if this application dies. However it does need to
  * protect against this thread dying.
- * 
+ *
  * @param tx
  * The transaction that has an unused empty block of undo
- * 
+ *
  * @param ub
  * The undo block to make free
- * 
+ *
  * @param td
  * The thread data for the thread that owns the transaction.
  */
@@ -1316,8 +1316,8 @@ static void nvm_drop_undo@(nvm_transaction ^tx, nvm_undo_blk ^ub,
     /* Unlink the block from the transaction before adding it to the freelist.
      * This must commit first since recovery uses the linked list of undo blocks
      * on the transaction, but rebuilds the freelist based on count of undo
-     * records in undo blocks. A block with a zero count will not be lost, 
-     * but a transaction pointing to a block on the freelist will not 
+     * records in undo blocks. A block with a zero count will not be lost,
+     * but a transaction pointing to a block on the freelist will not
      * recover properly. */
     tx=>undo ~= ub=>link;
     nvm_persist();
@@ -1328,7 +1328,7 @@ static void nvm_drop_undo@(nvm_transaction ^tx, nvm_undo_blk ^ub,
     ttd->free_undo = ub;
     td->persist_undo += 2;
 
-    /* In case someone is waiting for a free block, post the condition. This 
+    /* In case someone is waiting for a free block, post the condition. This
      * will do many unnecessary posts, but is guaranteed to work. */
     nvms_cond_post(ttd->undo_cond, 0);
 
@@ -1353,8 +1353,8 @@ static void nvm_drop_undo(nvm_transaction *tx, nvm_undo_blk *ub,
     /* Unlink the block from the transaction before adding it to the freelist.
      * This must commit first since recovery uses the linked list of undo blocks
      * on the transaction, but rebuilds the freelist based on count of undo
-     * records in undo blocks. A block with a zero count will not be lost, 
-     * but a transaction pointing to a block on the freelist will not 
+     * records in undo blocks. A block with a zero count will not be lost,
+     * but a transaction pointing to a block on the freelist will not
      * recover properly. */
     nvm_undo_blk_set(&tx->undo, nvm_undo_blk_get(&ub->link));
     nvm_persist1(&tx->undo);
@@ -1365,7 +1365,7 @@ static void nvm_drop_undo(nvm_transaction *tx, nvm_undo_blk *ub,
     ttd->free_undo = ub;
     td->persist_undo += 2;
 
-    /* In case someone is waiting for a free block, post the condition. This 
+    /* In case someone is waiting for a free block, post the condition. This
      * will do many unnecessary posts, but is guaranteed to work. */
     nvms_cond_post(ttd->undo_cond, 0);
 
@@ -1485,7 +1485,7 @@ void nvm_count_undo(nvm_transaction *tx)
 
 /**
  * This prepares for either applying or generating undo in the current
- * undo block, if any. The operation table is scanned to calculate 
+ * undo block, if any. The operation table is scanned to calculate
  * the values for undo_data and undo_bytes in the transaction. Note that
  * these are transient fields that do not need flushing.
  */
@@ -1502,7 +1502,7 @@ void nvm_prep_undo(nvm_transaction ^tx)
         return;
     }
 
-    /* Find the pointer to the latest undo data stored in the block. The undo 
+    /* Find the pointer to the latest undo data stored in the block. The undo
      * operation data builds down from the end of data[]. Thus the
      * sum of the operation sizes must be subtracted from the address of the
      * end of the block to find the latest data. Note that we cannot just
@@ -1534,7 +1534,7 @@ void nvm_prep_undo(nvm_transaction ^tx)
         tx=>undo_bytes -= bytes; // bytes consumed for undo data
     }
 
-    /* reduce undo_bytes by 8 more if the next opcode allocation will be 
+    /* reduce undo_bytes by 8 more if the next opcode allocation will be
      * in a new uint64_t. */
     if ((ub=>count % (sizeof(uint64_t) / sizeof(nvm_operation))) == 0)
         tx=>undo_bytes -= sizeof(uint64_t);
@@ -1555,7 +1555,7 @@ void nvm_prep_undo(nvm_transaction *tx)
     /* make sure we are actually looking at an undo block */
     nvm_verify(ub, shapeof(nvm_undo_blk));
 
-    /* Find the pointer to the latest undo data stored in the block. The undo 
+    /* Find the pointer to the latest undo data stored in the block. The undo
      * operation data builds down from the end of data[]. Thus the
      * sum of the operation sizes must be subtracted from the address of the
      * end of the block to find the latest data. Note that we cannot just
@@ -1587,7 +1587,7 @@ void nvm_prep_undo(nvm_transaction *tx)
         tx->undo_bytes -= bytes; // bytes consumed for undo data
     }
 
-    /* reduce undo_bytes by 8 more if the next opcode allocation will be 
+    /* reduce undo_bytes by 8 more if the next opcode allocation will be
      * in a new uint64_t. */
     if ((ub->count % (sizeof(uint64_t) / sizeof(nvm_operation))) == 0)
         tx->undo_bytes -= sizeof(uint64_t);
@@ -1597,16 +1597,16 @@ void nvm_prep_undo(nvm_transaction *tx)
  * Return the state of the current transaction. If in a nested transaction this
  * is the state of the nested transaction. The caller is presumed to have
  * verified the transaction USID is valid.
- * 
+ *
  * @param tx Pointer to the current base transaction
- * 
+ *
  * @return State of current transaction.
  */
 #ifdef NVM_EXT
 static nvm_trans_state nvm_get_state(nvm_transaction ^tx)
 {
     /* If this is a base transaction the state is in the nvm_transaction.
-     * Otherwise it is in the description of the most recent nested 
+     * Otherwise it is in the description of the most recent nested
      * transaction. */
     nvm_nested ^nt = (nvm_nested ^)tx=>nstd_last;
     if (nt == 0)
@@ -1618,7 +1618,7 @@ static nvm_trans_state nvm_get_state(nvm_transaction ^tx)
 static nvm_trans_state nvm_get_state(nvm_transaction *tx)
 {
     /* If this is a base transaction the state is in the nvm_transaction.
-     * Otherwise it is in the description of the most recent nested 
+     * Otherwise it is in the description of the most recent nested
      * transaction. */
     nvm_nested *nt = nvm_nested_get(&tx->nstd_last);
     if (nt == 0)
@@ -1629,39 +1629,39 @@ static nvm_trans_state nvm_get_state(nvm_transaction *tx)
 #endif //NVM_EXT
 
 /**
- * This saves the current contents of a contiguous piece of NVM in one or 
- * more undo records of the current transaction. If the transaction aborts 
- * or rolls back to a previously created savepoint, then the contents will 
+ * This saves the current contents of a contiguous piece of NVM in one or
+ * more undo records of the current transaction. If the transaction aborts
+ * or rolls back to a previously created savepoint, then the contents will
  * be restored to the values saved here. Rollback may also be the result of
- * process death. Recovery by another process will apply the undo. 
- * 
- * Usually undo is automatically created via a transactional store to an 
- * NVM address. The preprocessor will insert calls to nvm_undo before 
- * storing in NVM. An application might need an explicit call for creating 
- * undo before passing an NVM address to a legacy function that will store 
- * results in NVM. Explicitly generating undo for an entire struct before 
- * multiple non-transactional stores into it, may be more efficient than 
+ * process death. Recovery by another process will apply the undo.
+ *
+ * Usually undo is automatically created via a transactional store to an
+ * NVM address. The preprocessor will insert calls to nvm_undo before
+ * storing in NVM. An application might need an explicit call for creating
+ * undo before passing an NVM address to a legacy function that will store
+ * results in NVM. Explicitly generating undo for an entire struct before
+ * multiple non-transactional stores into it, may be more efficient than
  * multiple transactional stores.
- * 
- * It is possible that there are not enough undo blocks available to hold 
- * the new undo. In that case the thread will sleep until more undo space 
+ *
+ * It is possible that there are not enough undo blocks available to hold
+ * the new undo. In that case the thread will sleep until more undo space
  * is available.
- * 
- * There is a region specific limit on the total amount of undo that a 
- * single base transaction and all its nested transactions can consume. 
- * This is necessary to prevent a runaway loop from consuming all available 
- * undo locking up the system. If this limit is exceeded then an assert is 
+ *
+ * There is a region specific limit on the total amount of undo that a
+ * single base transaction and all its nested transactions can consume.
+ * This is necessary to prevent a runaway loop from consuming all available
+ * undo locking up the system. If this limit is exceeded then an assert is
  * fired.
- * 
+ *
  * @param[in] data
  * This is the address in NVM where the data to preserve begins
- * 
+ *
  * @param[in] bytes
  * This is the amount of data to save as undo.
  */
 #ifdef NVM_EXT
-    void nvm_undo@( 
-        void ^data, 
+    void nvm_undo@(
+        void ^data,
         size_t size
         )
 {
@@ -1683,18 +1683,18 @@ static nvm_trans_state nvm_get_state(nvm_transaction *tx)
     size_t cnt = size; // bytes remaining to be saved
     while (cnt > 0)
     {
-        /* If we cannot even get the smallest struct in this block, allocate 
+        /* If we cannot even get the smallest struct in this block, allocate
          * a new undo block. */
         if (tx=>undo_bytes < sizeof(nvm_restore) + 8)
             nvm_add_undo(tx, td);
 
         /* decide how much we can store in the current block. */
         nvm_restore ^r;
-        size_t bytes = sizeof(^r) + cnt; // max total data size 
+        size_t bytes = sizeof(^r) + cnt; // max total data size
         if (tx=>undo_bytes < bytes)
             bytes = tx=>undo_bytes; // will need another block after this
 
-        /* calculate a pointer to our operation data. It must be 8 
+        /* calculate a pointer to our operation data. It must be 8
          * byte aligned */
         r = (nvm_restore^)(tx=>undo_data - ((bytes + 7) & ~7));
 
@@ -1712,8 +1712,8 @@ static nvm_trans_state nvm_get_state(nvm_transaction *tx)
     }
 }
 #else
-void nvm_undo(   
-        const void *data,    
+void nvm_undo(
+        const void *data,
         size_t size
         )
 {
@@ -1736,7 +1736,7 @@ void nvm_undo(
     size_t cnt = size; // bytes remaining to be saved
     while (cnt > 0)
     {
-        /* If we cannot even get the smallest struct in this block, allocate 
+        /* If we cannot even get the smallest struct in this block, allocate
          * a new undo block. If some of this can be saved then verify the
          * current undo block is valid. */
         if (tx->undo_bytes < sizeof(nvm_restore) + 8)
@@ -1746,11 +1746,11 @@ void nvm_undo(
 
         /* decide how much we can store in the current block. */
         nvm_restore *r;
-        size_t bytes = sizeof(*r) + cnt; // max total data size 
+        size_t bytes = sizeof(*r) + cnt; // max total data size
         if (tx->undo_bytes < bytes)
             bytes = tx->undo_bytes; // will need another block after this
 
-        /* calculate a pointer to our operation data. It must be 8 
+        /* calculate a pointer to our operation data. It must be 8
          * byte aligned */
         r = (nvm_restore*)(tx->undo_data - ((bytes + 7) & ~7));
 
@@ -1771,24 +1771,24 @@ void nvm_undo(
 #endif //NVM_EXT
 
 /**
- * This adds a new NVM lock undo record to the current transaction and 
- * returns a pointer to it. It also returns the slot number of the 
+ * This adds a new NVM lock undo record to the current transaction and
+ * returns a pointer to it. It also returns the slot number of the
  * current transaction to store in the owners field if acquired X. The
- * lock state will be set to free before the record is added to the 
+ * lock state will be set to free before the record is added to the
  * transaction.
- * 
+ *
  * If the current max lock level will be set in the nvm_lkrec so that the
  * caller can decide if there is a deadlock problem.
- * 
+ *
  * @param[in] tx
  * The transaction that is acquiring a lock
- * 
+ *
  * @param[in] td
  * The thread data for the thread that owns the transaction.
- * 
+ *
  * @param[in] mx
  * Address of the nvm_amutex that will be locked.
- * 
+ *
  * @return
  * Pointer to the new nvm_lkrec struct
  */
@@ -1840,7 +1840,7 @@ nvm_lkrec ^nvm_add_lock_op@(
     lk=>state ~= st;
     lk=>mutex ~= mx;
 
-    /* Add to the transaction. This makes it persistently part of the 
+    /* Add to the transaction. This makes it persistently part of the
      * transaction. */
     nvm_add_oper(tx, nvm_op_lock, sizeof(nvm_lkrec));
 
@@ -1909,7 +1909,7 @@ nvm_lkrec *nvm_add_lock_op(
     /* flush the lock data*/
     nvm_flush(lk, sizeof(*lk));
 
-    /* Add to the transaction. This makes it persistently part of the 
+    /* Add to the transaction. This makes it persistently part of the
      * transaction. */
     nvm_add_oper(tx, nvm_op_lock, sizeof(nvm_lkrec));
 
@@ -1940,24 +1940,24 @@ nvm_lkrec *nvm_add_lock_op(
  * is complete. Thus the callback must tolerate a partially constructed
  * argument. Unless there is a persist barrier, the stores into the
  * argument may complete in any order.
- * 
- * If the undo record is applied, the indicated function is called with a 
- * pointer to the persistent struct allocated in the undo record. The 
- * function is called inside its own nested transaction. The nested 
- * transaction is committed when the function returns. The nested 
- * transaction must not be aborted because this would make the NVM region 
- * unrecoverable. Note that during recovery the function may be called in 
+ *
+ * If the undo record is applied, the indicated function is called with a
+ * pointer to the persistent struct allocated in the undo record. The
+ * function is called inside its own nested transaction. The nested
+ * transaction is committed when the function returns. The nested
+ * transaction must not be aborted because this would make the NVM region
+ * unrecoverable. Note that during recovery the function may be called in
  * another process.
- * 
- * This allows arbitrary application code to be called during rollback or 
- * transaction abort. The onabort operation can implement logical undo 
- * which acquires its own locks rather than holding locks until the parent 
- * transaction commits. A nested transaction can be started once the undo 
- * is created. The nested transaction can acquire locks update NVM and 
- * transactionally store in the undo record the information needed to undo 
+ *
+ * This allows arbitrary application code to be called during rollback or
+ * transaction abort. The onabort operation can implement logical undo
+ * which acquires its own locks rather than holding locks until the parent
+ * transaction commits. A nested transaction can be started once the undo
+ * is created. The nested transaction can acquire locks update NVM and
+ * transactionally store in the undo record the information needed to undo
  * the update. The nested transaction commits releasing any locks it holds.
  * This reduces lock contention, and can be used to avoid deadlocks.
- * 
+ *
  * If a new software release changes the callback function to take an
  * argument with a new field, then the old function should be kept with
  * the same USID and a new USID defined for the new version of the function.
@@ -1969,21 +1969,21 @@ nvm_lkrec *nvm_add_lock_op(
  * to be kept for multiple software releases.
  *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] func
- * This is a USID that nvm_usid_volatile can map to the address of the 
+ * This is a USID that nvm_usid_volatile can map to the address of the
  * undo function.
- * 
- * @return 
+ *
+ * @return
  * If the undo is successfully constructed, then the address of the undo
- * argument struct is returned so that the caller can initialize it. If 
+ * argument struct is returned so that the caller can initialize it. If
  * there is an error then zero is returned and errno is set.
- * 
+ *
  * @par Errors:\n
  */
 #ifdef NVM_EXT
-void ^nvm_onabort@( 
-        void (|func@)() 
+void ^nvm_onabort@(
+        void (|func@)()
         )
 {
     /* lookup the nvm_extern for the function to get its arg type. */
@@ -2029,8 +2029,8 @@ void ^nvm_onabort@(
     return oa=>data;
 }
 #else
-void *nvm_onabort(   
-        nvm_usid func    
+void *nvm_onabort(
+        nvm_usid func
         )
 {
     /* lookup the nvm_extern for the function to get its arg type. */
@@ -2090,25 +2090,25 @@ void *nvm_onabort(
  * persistent struct. A pointer to the argument struct is returned so that
  * the caller can configure the arguments. The struct will be initialized
  * as if was allocated from an NVM heap.
- * 
- * If the current transaction commits, the indicated function is called 
- * with a pointer to the persistent struct allocated in the undo record. 
- * The function is called after all locks have been released by the 
- * containing transaction. It is called inside its own nested transaction. 
- * The nested transaction is committed when the function returns. The 
- * nested transaction must not be aborted because this would make the NVM 
- * region unrecoverable. Note that during recovery the function may be 
+ *
+ * If the current transaction commits, the indicated function is called
+ * with a pointer to the persistent struct allocated in the undo record.
+ * The function is called after all locks have been released by the
+ * containing transaction. It is called inside its own nested transaction.
+ * The nested transaction is committed when the function returns. The
+ * nested transaction must not be aborted because this would make the NVM
+ * region unrecoverable. Note that during recovery the function may be
  * called in another process.
- * 
- * This allows arbitrary application code to be called as part of 
- * transaction commit. Once the transaction is put in state committing and 
- * all locks are released, then all the oncommit operations are executed. 
- * Thus the functions are only called if the transaction is guaranteed not 
- * to abort or do any rollback. This is useful for avoiding deadlocks and 
- * reducing lock contention. If the process executing the function dies, 
- * then recovery will rollback the nested transaction and re-execute the 
+ *
+ * This allows arbitrary application code to be called as part of
+ * transaction commit. Once the transaction is put in state committing and
+ * all locks are released, then all the oncommit operations are executed.
+ * Thus the functions are only called if the transaction is guaranteed not
+ * to abort or do any rollback. This is useful for avoiding deadlocks and
+ * reducing lock contention. If the process executing the function dies,
+ * then recovery will rollback the nested transaction and re-execute the
  * oncommit function.
- * 
+ *
  * If a new software release changes the callback function to take an
  * argument with a new field, then the old function should be kept with
  * the same USID and a new USID defined for the new version of the function.
@@ -2120,21 +2120,21 @@ void *nvm_onabort(
  * to be kept for multiple software releases.
  *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] func
- * This is a USID that nvm_usid_volatile can map to the address of the 
+ * This is a USID that nvm_usid_volatile can map to the address of the
  * commit function.
- * 
- * @return 
+ *
+ * @return
  * If the undo is successfully constructed, then the address of the commit
- * argument struct is returned so that the caller can initialize it. If 
+ * argument struct is returned so that the caller can initialize it. If
  * there is an error then zero is returned and errno is set.
- * 
+ *
  * @par Errors:\n
  */
 #ifdef NVM_EXT
-void ^nvm_oncommit@( 
-        void (|func@)() 
+void ^nvm_oncommit@(
+        void (|func@)()
         )
 {
     /* lookup the nvm_extern for the function to get its arg type. */
@@ -2177,7 +2177,7 @@ void ^nvm_oncommit@(
     /* Do the default initialization for the argument. This flushes oc=>data. */
     nvm_alloc_init(oc=>data, arg, arg->size);
 
-    /* Add to the transaction. This makes it persistently part of the 
+    /* Add to the transaction. This makes it persistently part of the
      * transaction. */
     nvm_add_oper(tx, nvm_op_on_commit, size);
 
@@ -2193,8 +2193,8 @@ void ^nvm_oncommit@(
     return oc=>data;
 }
 #else
-void *nvm_oncommit(   
-        nvm_usid func    
+void *nvm_oncommit(
+        nvm_usid func
         )
 {
     /* lookup the nvm_extern for the function to get its arg type. */
@@ -2245,7 +2245,7 @@ void *nvm_oncommit(
     /* Do the default initialization for the argument. This flushes oc->data. */
     nvm_alloc_init(oc->data, arg, arg->size);
 
-    /* Add to the transaction. This makes it persistently part of the 
+    /* Add to the transaction. This makes it persistently part of the
      * transaction. */
     nvm_add_oper(tx, nvm_op_on_commit, size);
 
@@ -2276,14 +2276,14 @@ void *nvm_oncommit(
  * is complete. Thus the callback must tolerate a partially constructed
  * argument. Unless there is a persist barrier, the stores into the
  * argument may complete in any order.
- * 
+ *
  * When the current transaction either commits or aborts, all the locks
  * acquired by the transaction are released in the reverse order they were
  * acquired. Similarly, rollback to a savepoint releases locks acquired
  * since the savepoint was established. For abort or rollback, all undo
  * records are applied in reverse order so that the locks are released
  * after all undo generated while the lock is held is applied.
- * 
+ *
  * The undo record created by this call is treated like a lock. The
  * indicated function is called with a pointer to the persistent struct
  * allocated in the undo record. The function is called at commit, abort,
@@ -2293,26 +2293,26 @@ void *nvm_oncommit(
  * call nvm_txstatus(1) to determine if the parent transaction, containing
  * the unlock record, committed, aborted, or is being rolled back to a
  * savepoint.
- * 
+ *
  * The nested transaction is committed when the function returns. The
  * callback must not call nvm_abort because this would make the NVM region
  * unrecoverable. Note that during recovery the function may be called in
  * another process. If the thread executing the function dies, then
  * recovery will rollback the nested transaction and re-execute the
  * onunlock function.
- * 
+ *
  * This allows arbitrary application code to be called while locks
  * previously acquired are still held, even if the transaction is
  * committing. This is useful for executing code that only runs if the
  * transaction commits, and runs before relevant locks are released. This
  * mechanism can also be used to have application implemented locks that
  * are different than nvm_amutex locks.
- * 
+ *
  * The callback function must not call longjmp to return to a setjmp that
  * was set before it was called. This would leave the transaction in a
  * partially committed state that is unlikely to be consistent. An assert
  * will fire if this is attempted.
- * 
+ *
  * If a new software release changes the callback function to take an
  * argument with a new field, then the old function should be kept with
  * the same USID and a new USID defined for the new version of the function.
@@ -2323,22 +2323,22 @@ void *nvm_oncommit(
  * been attached, and thus recovered, in years. Thus the old function needs
  * to be kept for multiple software releases.
  *
- * If there are any errors then errno is set and the return value is zero.	
- * 
+ * If there are any errors then errno is set and the return value is zero.
+ *
  * @param[in] func
- * This is a USID that nvm_usid_volatile can map to the address of the 
+ * This is a USID that nvm_usid_volatile can map to the address of the
  * unlock function.
- * 
- * @return 
+ *
+ * @return
  * If the undo is successfully constructed, then the address of the unlock
- * argument struct is returned so that the caller can initialize it. If 
+ * argument struct is returned so that the caller can initialize it. If
  * there is an error then zero is returned and errno is set.
- * 
+ *
  * @par Errors:\n
  */
 #ifdef NVM_EXT
-void ^nvm_onunlock@( 
-        void (|func@)() 
+void ^nvm_onunlock@(
+        void (|func@)()
         )
 {
     /* lookup the nvm_extern for the function to get its arg type. */
@@ -2348,7 +2348,7 @@ void ^nvm_onunlock@(
     const nvm_type *arg = nx->arg;
     if (arg == NULL)
         nvms_assert_fail("Function passed to nvm_onunlock is not a callback");
-    
+
     /* Get the current transaction and verify its type and state. */
     nvm_thread_data *td = nvm_get_thread_data();
     nvm_transaction ^tx = td->transaction;
@@ -2382,7 +2382,7 @@ void ^nvm_onunlock@(
     /* Do the default initialization for the argument. This flushes ou=>data. */
     nvm_alloc_init(ou=>data, arg, arg->size);
 
-    /* Add to the transaction. This makes it persistently part of the 
+    /* Add to the transaction. This makes it persistently part of the
      * transaction. */
     nvm_add_oper(tx, nvm_op_on_unlock, size);
 
@@ -2397,8 +2397,8 @@ void ^nvm_onunlock@(
     return ou=>data;
 }
 #else
-void *nvm_onunlock(   
-        nvm_usid func    
+void *nvm_onunlock(
+        nvm_usid func
         )
 {
     /* lookup the nvm_extern for the function to get its arg type. */
@@ -2408,7 +2408,7 @@ void *nvm_onunlock(
     const nvm_type *arg = nx->arg;
     if (arg == NULL)
         nvms_assert_fail("Function passed to nvm_onunlock is not a callback");
-    
+
     /* Get the current transaction and verify its type and state. */
     nvm_thread_data *td = nvm_get_thread_data();
     nvm_transaction *tx = td->transaction;
@@ -2449,7 +2449,7 @@ void *nvm_onunlock(
     /* Do the default initialization for the argument. This flushes ou->data. */
     nvm_alloc_init(ou->data, arg, arg->size);
 
-    /* Add to the transaction. This makes it persistently part of the 
+    /* Add to the transaction. This makes it persistently part of the
      * transaction. */
     nvm_add_oper(tx, nvm_op_on_unlock, size);
 
@@ -2472,13 +2472,13 @@ void *nvm_onunlock(
 #ifdef NVM_EXT
 void nvm_unlock_callback@(nvm_on_unlock ^ou)
 {
-    /* If the callback previously committed do not call again. We clear the 
+    /* If the callback previously committed do not call again. We clear the
      * second half of the usid within the transaction to indicate it
      * committed. */
     nvm_usid ^ui = (nvm_usid^)%ou=>func;
     if (ui=>d2 == 0)
         return;
-    
+
     /* lookup the function address and assert if there is none */
     void (*f@)() = *ou=>func;
     if (f == 0)
@@ -2501,12 +2501,12 @@ void nvm_unlock_callback@(nvm_on_unlock ^ou)
 #else
 void nvm_unlock_callback(nvm_on_unlock *ou)
 {
-    /* If the callback previously committed do not call again. We clear the 
+    /* If the callback previously committed do not call again. We clear the
      * second half of the usid within the transaction to indicate it
      * committed. */
     if (ou->func.d2 == 0)
         return;
-    
+
     /* lookup the function address and assert if there is none */
     void (*f)(void*) = (void(*)(void*))nvm_usid_volatile(ou->func);
     if (f == 0)
@@ -2531,18 +2531,18 @@ void nvm_unlock_callback(nvm_on_unlock *ou)
 #endif //NVM_EXT
 
 /**
- * This commits the current transaction. The current transaction is 
+ * This commits the current transaction. The current transaction is
  * committed releasing all its locks and executing any oncommit operations.
- * The transaction remains the current transaction until its code block is 
+ * The transaction remains the current transaction until its code block is
  * exited. No more transactional operations are allowed in this transaction.
- * 
- * It is an error if there is no current transaction or it is already 
- * committed or aborted. If there are any errors then errno is set and the 
+ *
+ * It is an error if there is no current transaction or it is already
+ * committed or aborted. If there are any errors then errno is set and the
  * return value is zero.
- * 
- * @return 
+ *
+ * @return
  * One if successful and zero if errno has an error
- *     
+ *
  * @par Errors : \n
  */
 #ifdef NVM_EXT
@@ -2554,7 +2554,7 @@ void nvm_commit@()
     if (tx == 0)
         nvms_assert_fail("Commit without a transaction");
 
-    /* Make sure any updates done by the transaction are persistent before 
+    /* Make sure any updates done by the transaction are persistent before
      * we start making any state changes. */
     nvm_persist();
 
@@ -2582,11 +2582,11 @@ void nvm_commit@()
         if (nt=>state != nvm_active_state && nt=>state != nvm_committing_state)
             nvms_assert_fail("Commit of non-active transaction");
 
-        /* Committing a nested transaction. 
+        /* Committing a nested transaction.
          * Set stop to the nested undo operation itself. Until nvm_txend is
          * called, we want the operation to be part of the transaction with
          * nstd_last pointing at it. Once everything except the nested
-         * operation itself has been applied, the effect of the commit is 
+         * operation itself has been applied, the effect of the commit is
          * complete, */
         stop = nt=>undo_ops + 1;
         nt=>state ~= nvm_committing_state;
@@ -2595,7 +2595,7 @@ void nvm_commit@()
     td->persist_commit += 2;
 
     /* Release all the locks held by this transaction. Each unlock atomically
-     * releases the lock and clears the lock state of the nvm_lkrec so that 
+     * releases the lock and clears the lock state of the nvm_lkrec so that
      * unlock is idempotent. */
     nvm_lkrec ^lk = tx=>held_locks;
     while (lk != 0 && lk=>undo_ops >= stop)
@@ -2608,7 +2608,7 @@ void nvm_commit@()
         lk = lk=>prev;
     }
 
-    /* We unlocked all locks for the transaction. Set the new head of the 
+    /* We unlocked all locks for the transaction. Set the new head of the
      * held locks list. Note that since we do not keep the list head
      * updated after every lock release, we could die in the middle of
      * releasing a lock and the lock will not be the head of the lock list.
@@ -2623,7 +2623,7 @@ void nvm_commit@()
      * To execute in order created we use the transient next pointer in the
      * nvm_on_commit records to construct a list in execution order. Then we
      * use that list to execute in the correct order.
-     * 
+     *
      * You might think it would be better to link them in the right order
      * but correctly maintaining the list tail atomically during roll back
      * of an nested transaction is difficult. */
@@ -2687,19 +2687,19 @@ void nvm_commit@()
     nvm_undo_blk ^ub = tx=>undo;
     while (ub && (tx=>undo_ops - ub=>count) >= stop)
     {
-        /* reduce total undo_ops by the count in the block we are 
+        /* reduce total undo_ops by the count in the block we are
          * discarding. Note that undo_ops is transient and does not
          * need to be flushed. Recovery will recalculate it. */
         tx=>undo_ops -= ub=>count;
 
-        /* Mark block as empty. This means application death will result 
+        /* Mark block as empty. This means application death will result
          * in recovery removing it from the transaction. Thread death will
          * complete the commit throwing this away if necessary. */
         ub=>count ~= 0;
         nvm_persist();
         td->persist_commit++;
 
-        /* Atomically move the block from the transaction to the 
+        /* Atomically move the block from the transaction to the
          * undo freelist. */
         nvm_drop_undo(tx, ub, td);
 
@@ -2709,7 +2709,7 @@ void nvm_commit@()
 
     /* If this is a nested transaction then throw away the undo up to the
      * nvm_nested record itself. The record stays until nvm_txend is called.
-     * We also set the state to committed so that no more undo can be 
+     * We also set the state to committed so that no more undo can be
      * added to the transaction. */
     if (stop != 0)
     {
@@ -2737,7 +2737,7 @@ void nvm_commit@()
     nvm_prep_undo(tx);
 }
 #else
-void nvm_commit()    
+void nvm_commit()
 {
     /* Get the current transaction and verify its type and state. */
     nvm_thread_data *td = nvm_get_thread_data();
@@ -2746,7 +2746,7 @@ void nvm_commit()
         nvms_assert_fail("Commit without a transaction");
     nvm_verify(tx, shapeof(nvm_transaction));
 
-    /* Make sure any updates done by the transaction are persistent before 
+    /* Make sure any updates done by the transaction are persistent before
      * we start making any state changes. */
     nvm_persist();
 
@@ -2774,11 +2774,11 @@ void nvm_commit()
         if (nt->state != nvm_active_state && nt->state != nvm_committing_state)
             nvms_assert_fail("Commit of non-active transaction");
 
-        /* Committing a nested transaction. 
+        /* Committing a nested transaction.
          * Set stop to the nested undo operation itself. Until nvm_txend is
          * called, we want the operation to be part of the transaction with
          * nstd_last pointing at it. Once everything except the nested
-         * operation itself has been applied, the effect of the commit is 
+         * operation itself has been applied, the effect of the commit is
          * complete, */
         stop = nt->undo_ops + 1;
         nt->state = nvm_committing_state;
@@ -2787,7 +2787,7 @@ void nvm_commit()
     td->persist_commit += 2;
 
     /* Release all the locks held by this transaction. Each unlock atomically
-     * releases the lock and clears the lock state of the nvm_lkrec so that 
+     * releases the lock and clears the lock state of the nvm_lkrec so that
      * unlock is idempotent. */
     nvm_lkrec *lk = nvm_lkrec_get(&tx->held_locks);
     while (lk != NULL && lk->undo_ops >= stop)
@@ -2800,7 +2800,7 @@ void nvm_commit()
         lk = nvm_lkrec_get(&lk->prev);
     }
 
-    /* We unlocked all locks for the transaction. Set the new head of the 
+    /* We unlocked all locks for the transaction. Set the new head of the
      * held locks list. Note that since we do not keep the list head
      * updated after every lock release, we could die in the middle of
      * releasing a lock and the lock will not be the head of the lock list.
@@ -2815,11 +2815,11 @@ void nvm_commit()
      * To execute in order created we use the transient next pointer in the
      * nvm_on_commit records to construct a list in execution order. Then we
      * use that list to execute in the correct order.
-     * 
+     *
      * You might think it would be better to link them in the right order
      * but correctly maintaining the list tail atomically during roll back
      * of an nested transaction is difficult. */
-    nvm_on_commit *hoc = nvm_on_commit_get(&tx->commit_ops); //list head 
+    nvm_on_commit *hoc = nvm_on_commit_get(&tx->commit_ops); //list head
     if (hoc != 0)
     {
         /* link the on commit records for this transaction in execution order.
@@ -2881,32 +2881,32 @@ void nvm_commit()
     nvm_verify(ub, shapeof(nvm_undo_blk));
     while (ub && (tx->undo_ops - ub->count) >= stop)
     {
-        /* reduce total undo_ops by the count in the block we are 
+        /* reduce total undo_ops by the count in the block we are
          * discarding. Note that undo_ops is transient and does not
          * need to be flushed. Recovery will recalculate it. */
         tx->undo_ops -= ub->count;
 
-        /* Mark block as empty. This means application death will result 
+        /* Mark block as empty. This means application death will result
          * in recovery removing it from the transaction. Thread death will
          * complete the commit throwing this away if necessary. */
         ub->count = 0;
         nvm_persist1(&ub->count);
         td->persist_commit++;
 
-        /* Atomically move the block from the transaction to the 
+        /* Atomically move the block from the transaction to the
          * undo freelist. */
         nvm_drop_undo(tx, ub, td);
 
         /* get the next undo block to consider dropping */
         ub = nvm_undo_blk_get(&tx->undo);
-        
+
         /* Verify this is a valid undo block */
         nvm_verify(ub, shapeof(nvm_undo_blk));
     }
 
     /* If this is a nested transaction then throw away the undo up to the
      * nvm_nested record itself. The record stays until nvm_txend is called.
-     * We also set the state to committed so that no more undo can be 
+     * We also set the state to committed so that no more undo can be
      * added to the transaction. */
     if (stop != 0)
     {
@@ -2937,9 +2937,9 @@ void nvm_commit()
 
 /**
  * Apply undo from the transaction until the desired undo_ops is
- * reached. Undo blocks will be returned to the free list if they 
+ * reached. Undo blocks will be returned to the free list if they
  * become empty.
- * 
+ *
  * Note that this relies on undo_data and undo_bytes being correct.
  */
 #ifdef NVM_EXT
@@ -2953,7 +2953,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
         /* If this undo block is empty remove it from the transaction. */
         if (ub=>count == 0)
         {
-            /* Atomically move the block from the transaction to the 
+            /* Atomically move the block from the transaction to the
              * undo freelist. */
             nvm_drop_undo(tx, ub, td);
             nvm_prep_undo(tx); // prepare for new undo block
@@ -3004,7 +3004,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
             nvm_lkrec ^lk = (nvm_lkrec ^)tx=>undo_data;
             nvm_unlock(tx, td, lk);
 
-            /* remove the lock from the held locks list before discarding 
+            /* remove the lock from the held locks list before discarding
              * the undo persistently. */
             tx=>held_locks ~= lk=>prev;
             nvm_persist();
@@ -3018,7 +3018,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
             nvm_on_unlock ^ou = (nvm_on_unlock ^)tx=>undo_data;
             nvm_unlock_callback(ou);
 
-            /* remove the lock from the held locks list before discarding 
+            /* remove the lock from the held locks list before discarding
              * the undo persistently. */
             tx=>held_locks ~= ou=>prev;
             nvm_persist();
@@ -3031,7 +3031,7 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
             /* A savepoint is just a marker in the undo. Just remove it from
              * the head of the savepoint list. It is possible that the thread
              * died just after creating this undo but before linking this to
-             * the list of savepoints, or just after unlinking but before 
+             * the list of savepoints, or just after unlinking but before
              * removing from the transaction. */
             nvm_savepnt ^sp = (nvm_savepnt ^)tx=>undo_data;
             nvm_savepnt ^psp = sp=>prev; // previous sp
@@ -3058,12 +3058,12 @@ static void nvm_apply_undo@(nvm_transaction ^tx, uint32_t stop,
         {
             /* We normally never encounter this during rollback since it should
              * be removed by nvm_txend. However it is possible for the record
-             * to exist, but not linked to the list of nested transactions. 
+             * to exist, but not linked to the list of nested transactions.
              * This can happen if this record was created, but before it was
              * made the current transaction, the tread died. This can also
              * happen if a thread dies in nvm_txend after removing the record
              * from the list, but before removing the undo record. In either
-             * case the head of the nested transaction list should be the 
+             * case the head of the nested transaction list should be the
              * nvm_nested previous to this one. */
             nvm_nested ^nt = (nvm_nested ^)tx=>undo_data;
             nvm_nested ^pnt = nt=>prev; // previous nt
@@ -3147,7 +3147,7 @@ static void nvm_apply_undo(nvm_transaction *tx, uint32_t stop,
         /* If this undo block is empty remove it from the transaction. */
         if (ub->count == 0)
         {
-            /* Atomically move the block from the transaction to the 
+            /* Atomically move the block from the transaction to the
              * undo freelist. */
             nvm_drop_undo(tx, ub, td);
             nvm_prep_undo(tx); // prepare for new undo block
@@ -3200,7 +3200,7 @@ static void nvm_apply_undo(nvm_transaction *tx, uint32_t stop,
             nvm_lkrec *lk = (nvm_lkrec *)tx->undo_data;
             nvm_unlock(tx, td, lk);
 
-            /* remove the lock from the held locks list before discarding 
+            /* remove the lock from the held locks list before discarding
              * the undo persistently. */
             lk = nvm_lkrec_get(&lk->prev);
             nvm_lkrec_set(&tx->held_locks, lk);
@@ -3215,7 +3215,7 @@ static void nvm_apply_undo(nvm_transaction *tx, uint32_t stop,
             nvm_on_unlock *ou = (nvm_on_unlock *)tx->undo_data;
             nvm_unlock_callback(ou);
 
-            /* remove the lock from the held locks list before discarding 
+            /* remove the lock from the held locks list before discarding
              * the undo persistently. */
             ou = (nvm_on_unlock *)nvm_lkrec_get(&ou->prev);
             nvm_lkrec_set(&tx->held_locks, (nvm_lkrec *)ou);
@@ -3229,7 +3229,7 @@ static void nvm_apply_undo(nvm_transaction *tx, uint32_t stop,
             /* A savepoint is just a marker in the undo. Just remove it from
              * the head of the savepoint list. It is possible that the thread
              * died just after creating this undo but before linking this to
-             * the list of savepoints, or just after unlinking but before 
+             * the list of savepoints, or just after unlinking but before
              * removing from the transaction. */
             nvm_savepnt *sp = (nvm_savepnt *)tx->undo_data;
             nvm_savepnt *psp = nvm_savepnt_get(&sp->prev); // previous sp
@@ -3256,12 +3256,12 @@ static void nvm_apply_undo(nvm_transaction *tx, uint32_t stop,
         {
             /* We normally never encounter this during rollback since it should
              * be removed by nvm_txend. However it is possible for the record
-             * to exist, but not linked to the list of nested transactions. 
+             * to exist, but not linked to the list of nested transactions.
              * This can happen if this record was created, but before it was
              * made the current transaction, the tread died. This can also
              * happen if a thread dies in nvm_txend after removing the record
              * from the list, but before removing the undo record. In either
-             * case the head of the nested transaction list should be the 
+             * case the head of the nested transaction list should be the
              * nvm_nested previous to this one. */
             nvm_nested *nt = (nvm_nested *)tx->undo_data;
             nvm_nested *pnt = nvm_nested_get(&nt->prev); // previous nt
@@ -3336,7 +3336,7 @@ static void nvm_apply_undo(nvm_transaction *tx, uint32_t stop,
 #endif //NVM_EXT
 
 /**
- * Apply the last undo record in the current transaction. This is generally 
+ * Apply the last undo record in the current transaction. This is generally
  * used to throw away an unneeded undo record that is a no-op. For example
  * it is used to remove the nvm_lkrec record for a lock operation that timed
  * out.
@@ -3356,22 +3356,22 @@ void nvm_apply_one(nvm_transaction *tx, nvm_thread_data *td)
 #endif //NVM_EXT
 
 /**
- * This aborts the current transaction applying all undo and releasing 
- * locks as the undo is applied. The transaction remains the current 
- * transaction until its code block is exited. No more transactional 
+ * This aborts the current transaction applying all undo and releasing
+ * locks as the undo is applied. The transaction remains the current
+ * transaction until its code block is exited. No more transactional
  * operations are allowed in this transaction.
- * 
- * It is an error if there is no current transaction or it is already 
- * committed or aborted. If there are any errors then errno is set and the 
+ *
+ * It is an error if there is no current transaction or it is already
+ * committed or aborted. If there are any errors then errno is set and the
  * return value is zero.
- * 
- * @return 
+ *
+ * @return
  * One if successful and zero if errno has an error
- * 
+ *
  * @par Errors:\n
  */
 #ifdef NVM_EXT
-void nvm_abort@()    
+void nvm_abort@()
 {
     /* Get the current transaction and verify its type and state. */
     nvm_thread_data *td = nvm_get_thread_data();
@@ -3408,7 +3408,7 @@ void nvm_abort@()
             nt=>state != nvm_rollback_state)
             nvms_assert_fail("Abort of non-active transaction");
 
-        /* Aborting a nested transaction. Set stop to the nested undo 
+        /* Aborting a nested transaction. Set stop to the nested undo
          * operation itself. Until nvm_txend is called, we want the operation
          * to be part of the transaction with nstd_last pointing at it.
          * Once everything except the nested operation itself has been
@@ -3419,7 +3419,7 @@ void nvm_abort@()
         td->persist_abort++;
     }
 
-    /* Roll back to the transaction beginning. This releases locks as 
+    /* Roll back to the transaction beginning. This releases locks as
      * soon as the undo generated after them is applied. */
     nvm_apply_undo(tx, stop, td);
 
@@ -3441,7 +3441,7 @@ void nvm_abort@()
     }
 }
 #else
-void nvm_abort()    
+void nvm_abort()
 {
     /* Get the current transaction and verify its type and state. */
     nvm_thread_data *td = nvm_get_thread_data();
@@ -3479,7 +3479,7 @@ void nvm_abort()
             nt->state != nvm_rollback_state)
             nvms_assert_fail("Abort of non-active transaction");
 
-        /* Aborting a nested transaction. Set stop to the nested undo 
+        /* Aborting a nested transaction. Set stop to the nested undo
          * operation itself. Until nvm_txend is called, we want the operation
          * to be part of the transaction with nstd_last pointing at it.
          * Once everything except the nested operation itself has been
@@ -3490,7 +3490,7 @@ void nvm_abort()
         td->persist_abort++;
     }
 
-    /* Roll back to the transaction beginning. This releases locks as 
+    /* Roll back to the transaction beginning. This releases locks as
      * soon as the undo generated after them is applied. */
     nvm_apply_undo(tx, stop, td);
 
@@ -3514,41 +3514,41 @@ void nvm_abort()
 #endif //NVM_EXT
 
 /**
- * This creates a savepoint in the current transaction. The savepoint is an 
+ * This creates a savepoint in the current transaction. The savepoint is an
  * undo record that defines a named point in the undo of a transaction. The
- * name for the save point is an NVM address of some location in the NVM 
- * region the transaction modifies. The return value is a pointer to the 
- * NVM location where the name is stored. This allows a null pointer to be 
- * passed when creating the savepoint and then setting the real name later 
+ * name for the save point is an NVM address of some location in the NVM
+ * region the transaction modifies. The return value is a pointer to the
+ * NVM location where the name is stored. This allows a null pointer to be
+ * passed when creating the savepoint and then setting the real name later
  * when it has been chosen. For example the name could be the address of an
- * object that is allocated after setting the savepoint. Then rollback to 
+ * object that is allocated after setting the savepoint. Then rollback to
  * savepoint will delete the object.
- * 
- * Setting a savepoint allows subsequent changes to be rolled back without 
- * aborting the entire transaction. Unlike a nested transaction, the 
- * changes under a savepoint do not commit until the current transaction 
- * commits and locks acquired after the savepoint are held until the 
+ *
+ * Setting a savepoint allows subsequent changes to be rolled back without
+ * aborting the entire transaction. Unlike a nested transaction, the
+ * changes under a savepoint do not commit until the current transaction
+ * commits and locks acquired after the savepoint are held until the
  * current transaction commits.
- * 
- * There may be multiple savepoints in the same transaction. They may even 
+ *
+ * There may be multiple savepoints in the same transaction. They may even
  * have the same name. Rollback to savepoint stops at the first matching s
  * avepoint.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] name
  * This is an address in NVM that is used as a name for the savepoint. It
  * can be changed after the savepoint is created.
- * 
- * @return 
- * If successful a pointer to the savepoint name in the undo record is 
+ *
+ * @return
+ * If successful a pointer to the savepoint name in the undo record is
  * returned. Store through the pointer to change the name.
- * 
+ *
  * @par Errors:\n
  */
 #ifdef NVM_EXT
-void ^^nvm_savepoint@( 
-        void ^name  
+void ^^nvm_savepoint@(
+        void ^name
         )
 {
     /* Get the current transaction and verify its type and state. */
@@ -3574,7 +3574,7 @@ void ^^nvm_savepoint@(
     /* Store the name in the savepoint */
     sp=>name ~= name;
 
-    /* Add to the transaction. This makes it persistently part of the 
+    /* Add to the transaction. This makes it persistently part of the
      * transaction. */
     nvm_add_oper(tx, nvm_op_savepoint, sizeof(nvm_savepnt));
 
@@ -3587,8 +3587,8 @@ void ^^nvm_savepoint@(
     return %sp=>name;
 }
 #else
-void_srp *nvm_savepoint(   
-        void *name    
+void_srp *nvm_savepoint(
+        void *name
         )
 {
     /* Get the current transaction and verify its type and state. */
@@ -3621,7 +3621,7 @@ void_srp *nvm_savepoint(
     /* flush the savepoint data*/
     nvm_flush(sp, sizeof(*sp));
 
-    /* Add to the transaction. This makes it persistently part of the 
+    /* Add to the transaction. This makes it persistently part of the
      * transaction. */
     nvm_add_oper(tx, nvm_op_savepoint, sizeof(nvm_savepnt));
 
@@ -3636,29 +3636,29 @@ void_srp *nvm_savepoint(
 #endif //NVM_EXT
 
 /**
- * This rolls back the current transaction until the first savepoint with 
- * the given name is encountered. This is the most recently created 
- * savepoint with the given name since undo is applied in reverse of the 
- * order it is generated. It is not an error to have multiple savepoints 
- * with the same name. An error is returned if there is no savepoint with 
- * the given name in the current transaction. A nested transaction cannot 
+ * This rolls back the current transaction until the first savepoint with
+ * the given name is encountered. This is the most recently created
+ * savepoint with the given name since undo is applied in reverse of the
+ * order it is generated. It is not an error to have multiple savepoints
+ * with the same name. An error is returned if there is no savepoint with
+ * the given name in the current transaction. A nested transaction cannot
  * rollback to a savepoint in its parent transaction.
- * 
- * If there are any errors then errno is set and the return value is zero. 
+ *
+ * If there are any errors then errno is set and the return value is zero.
  * No rollback is done if there is an error.
- * 
+ *
  * @param[in] name
  * This is the name of the savepoint to rollback to. It is an address in
  * NVM.
- * 
- * @return 
+ *
+ * @return
  * One on success and zero on error
- * 
+ *
  * @par Errors:\n
  */
 #ifdef NVM_EXT
-int nvm_rollback@( 
-        void ^name 
+int nvm_rollback@(
+        void ^name
         )
 {
     /* Get the current transaction and verify its type and state. */
@@ -3706,7 +3706,7 @@ int nvm_rollback@(
 #else
 int
 nvm_rollback(
-        void *name    
+        void *name
         )
 {
     /* Get the current transaction and verify its type and state. */
@@ -3756,16 +3756,16 @@ nvm_rollback(
 
 /**
  * This returns the current  transaction configuration for a region.
- * 
+ *
  * @param[in] desc
  * This is the region descriptor returned by nvm_create_region or
  * nvm_attach_region for the region to query.
- * 
+ *
  * @param[out] cfg
  * This points to a buffer in volatile memory where the configuration is
  * returned.
- * 
- * If the descriptor is bad then the return value is zero. 
+ *
+ * If the descriptor is bad then the return value is zero.
  */
 #ifdef NVM_EXT
 int nvm_get_txconfig(
@@ -3854,7 +3854,7 @@ persistent struct nvm_txconfig_ctx
     /**
      * This is the head of the linked list on nvm_trans_table structs to add
      * to the region. If only the maximum transaction count and maximum undo
-     * blocks per transaction are being changed then this is null. 
+     * blocks per transaction are being changed then this is null.
      */
     nvm_trans_table ^tt_append;
 
@@ -3876,7 +3876,7 @@ struct nvm_txconfig_ctx
     /**
      * This is the head of the linked list on nvm_trans_table structs to add
      * to the region. If only the maximum transaction count and maximum undo
-     * blocks per transaction are being changed then this is null. 
+     * blocks per transaction are being changed then this is null.
      */
     nvm_trans_table_srp tt_append; // nvm_trans_table ^tt_append
 
@@ -3904,7 +3904,7 @@ extern const nvm_extern nvm_extern_nvm_txconfig_callback;
  * after this operation appended the new transaction tables and before the
  * nested transaction committed. By not generating undo the tables list will
  * not be rolled back after it is used.
- * 
+ *
  * @param ctx
  * The new transaction configuration to save
  */
@@ -3928,13 +3928,13 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
      * more than once. */
     rg=>max_transactions ~= ctx=>txn_slots;
     rg=>max_undo_blocks ~= ctx=>undo_limit;
-    nvm_persist(); // ensure this becomes persistent 
+    nvm_persist(); // ensure this becomes persistent
 
     /* This may have reduced the maximum number of concurrent transactions
-     * allowed leaving some transactions marked as idle which should be 
+     * allowed leaving some transactions marked as idle which should be
      * reserved. This is resolved by going through the free transaction
      * list looking for transaction slots that need their state changed.
-     * When found the state is persistently changed and the transaction 
+     * When found the state is persistently changed and the transaction
      * removed from the free list.
      * There could be slots that are in use which need to be reserved. They
      * will be marked reserved when the transaction is ended. */
@@ -3976,7 +3976,7 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
 
     /* This may have increased the maximum number of concurrent transactions
      * requiring some transactions to be changed from state reserved to idle,
-     * and added to the transaction freelist. We scan the existing transaction 
+     * and added to the transaction freelist. We scan the existing transaction
      * tables looking for them. */
     nvm_trans_table ^htt = rg=>nvtt_list; // head trans table
     nvm_trans_table ^tt = htt; // loop variable
@@ -4018,13 +4018,13 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
     /* Scan the list of transaction tables to see if this is already in the
      * list, and to find the end if it is not. */
     tt = htt; // loop variable
-    nvm_trans_table ^ltt; // last trans table for linking new list to
+    nvm_trans_table ^ltt = NULL; // last trans table for linking new list to
     while (tt)
     {
 
         /* Already done if new tables are in the list. Note this also means
          * the new transactions are in the freelist and the new undo blocks
-         * are in their freelist since if we die after linking in the new 
+         * are in their freelist since if we die after linking in the new
          * tables the next recovery will rebuild. */
         if (tt == att)
         {
@@ -4053,7 +4053,7 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
         for (t = 0; t < TRANS_TABLE_SLOTS; t++)
         {
             /* If slot is idle, add to freelist. Note that the state was
-             * previously set to either reserved or idle based on the 
+             * previously set to either reserved or idle based on the
              * maximum number of allowed transactions being configured. */
             nvm_transaction ^tx = %tt=>transactions[t];
             if (tx=>state == nvm_idle_state)
@@ -4087,7 +4087,7 @@ void nvm_txconfig_callback@(nvm_txconfig_ctx ^ctx)
         for (u = 0; u < TRANS_TABLE_UNDO_BLKS; u++)
         {
             /* If slot is idle, add to freelist. Note that the state was
-             * previously set to either reserved or idle based on the 
+             * previously set to either reserved or idle based on the
              * maximum number of allowed transactions being configured. */
             nvm_undo_blk ^ub = %tt=>undo_blks[u];
 
@@ -4126,13 +4126,13 @@ void nvm_txconfig_callback(nvm_txconfig_ctx *ctx)
     nvm_flush1(&rg->max_transactions);
     rg->max_undo_blocks = ctx->undo_limit;
     nvm_flush1(&rg->max_undo_blocks);
-    nvm_persist(); // ensure this becomes persistent 
+    nvm_persist(); // ensure this becomes persistent
 
     /* This may have reduced the maximum number of concurrent transactions
-     * allowed leaving some transactions marked as idle which should be 
+     * allowed leaving some transactions marked as idle which should be
      * reserved. This is resolved by going through the free transaction
      * list looking for transaction slots that need their state changed.
-     * When found the state is persistently changed and the transaction 
+     * When found the state is persistently changed and the transaction
      * removed from the free list.
      * There could be slots that are in use which need to be reserved. They
      * will be marked reserved when the transaction is ended. */
@@ -4177,9 +4177,9 @@ void nvm_txconfig_callback(nvm_txconfig_ctx *ctx)
 
     /* This may have increased the maximum number of concurrent transactions
      * requiring some transactions to be changed from state reserved to idle,
-     * and added to the transaction freelist. We scan the existing transaction 
+     * and added to the transaction freelist. We scan the existing transaction
      * tables looking for them. */
-    nvm_trans_table *htt = nvm_trans_table_get(&rg->nvtt_list); // list head 
+    nvm_trans_table *htt = nvm_trans_table_get(&rg->nvtt_list); // list head
     nvm_trans_table *tt = htt; // loop variable
     while (tt)
     {
@@ -4221,13 +4221,13 @@ void nvm_txconfig_callback(nvm_txconfig_ctx *ctx)
     /* Scan the list of transaction tables to see if this is already in the
      * list, and to find the end if it is not. */
     tt = htt; // loop variable
-    nvm_trans_table *ltt; // last trans table for linking new list to
+    nvm_trans_table *ltt = NULL; // last trans table for linking new list to
     while (tt)
     {
 
         /* Already done if new tables are in the list. Note this also means
          * the new transactions are in the freelist and the new undo blocks
-         * are in their freelist since if we die after linking in the new 
+         * are in their freelist since if we die after linking in the new
          * tables the next recovery will rebuild. */
         if (tt == att)
         {
@@ -4257,7 +4257,7 @@ void nvm_txconfig_callback(nvm_txconfig_ctx *ctx)
         for (t = 0; t < TRANS_TABLE_SLOTS; t++)
         {
             /* If slot is idle, add to freelist. Note that the state was
-             * previously set to either reserved or idle based on the 
+             * previously set to either reserved or idle based on the
              * maximum number of allowed transactions being configured. */
             nvm_transaction *tx = &tt->transactions[t];
             nvm_verify(tx, shapeof(nvm_transaction));
@@ -4293,7 +4293,7 @@ void nvm_txconfig_callback(nvm_txconfig_ctx *ctx)
         for (u = 0; u < TRANS_TABLE_UNDO_BLKS; u++)
         {
             /* If slot is idle, add to freelist. Note that the state was
-             * previously set to either reserved or idle based on the 
+             * previously set to either reserved or idle based on the
              * maximum number of allowed transactions being configured. */
             nvm_undo_blk *ub = &tt->undo_blks[u];
             nvm_verify(ub, shapeof(nvm_undo_blk));
@@ -4314,42 +4314,42 @@ void nvm_txconfig_callback(nvm_txconfig_ctx *ctx)
 #endif //NVM_EXT
 
 /**
- * This changes the transaction configuration for a region. The new values 
- * may be greater than or less than the old values. If there are fewer 
+ * This changes the transaction configuration for a region. The new values
+ * may be greater than or less than the old values. If there are fewer
  * transaction slots than application threads then there is the possibility
  * that a thread that wants to begin a transaction may have to wait until a
- * transaction commits or aborts. If the number of transaction slots times 
- * the limit of undo blocks per transaction is greater than the total 
- * number of undo blocks, then there is the possibility that a transaction 
+ * transaction commits or aborts. If the number of transaction slots times
+ * the limit of undo blocks per transaction is greater than the total
+ * number of undo blocks, then there is the possibility that a transaction
  * may have to wait when generating undo until another transaction releases
  * an undo block. However this may be unlikely.
- * 
+ *
  * Transaction slots and undo blocks are allocated in megabyte chunks of 63
- * slots and 254 undo blocks (this could change). Thus requesting 64 slots 
+ * slots and 254 undo blocks (this could change). Thus requesting 64 slots
  * will actually allocate 126 slots. However the slot limit will be honored
- * and the extra slots left unused. Similarly, requesting 255 undo blocks 
- * will actually allocate 508 undo blocks. Since extra undo blocks cannot 
- * hurt, all available undo blocks will be usable and reported by 
+ * and the extra slots left unused. Similarly, requesting 255 undo blocks
+ * will actually allocate 508 undo blocks. Since extra undo blocks cannot
+ * hurt, all available undo blocks will be usable and reported by
  * nvm_get_txconfig.
- * 
- * The configuration is changed in a transaction that commits before 
- * returning. If this is called inside a transaction then a nested 
- * transaction is created and committed. The configuration is changed 
+ *
+ * The configuration is changed in a transaction that commits before
+ * returning. If this is called inside a transaction then a nested
+ * transaction is created and committed. The configuration is changed
  * atomically.
- * 
- * If there are any errors then errno is set and the return value is zero. 
+ *
+ * If there are any errors then errno is set and the return value is zero.
  * The new configuration must be reasonable.
- * 
+ *
  * @param[in] region
  * This is the region descriptor returned by nvm_create_region or
  * nvm_attach_region for the region to change.
- * 
+ *
  * @param[in] cfg
  * This is a buffer containing the new configuration data.
- * 
- * @return 
+ *
+ * @return
  * One on success and zero on error.
- * 
+ *
  * @par Errors:\n
  */
 #ifdef NVM_EXT
@@ -4450,7 +4450,7 @@ int nvm_set_txconfig(
         }
 
         /* Create an on unlock operation to update the transaction parameters
-         * in the nvm_region. This cannot be done with normal undo because 
+         * in the nvm_region. This cannot be done with normal undo because
          * recovery scans the transaction tables for transactions to recover
          * and constructs the freelists before any undo is applied. Thus we
          * cannot use undo to make the data structures consistent before they
@@ -4459,10 +4459,10 @@ int nvm_set_txconfig(
          * that they are linked to the list if the allocation is committed.
          * This must be done with careful ordering rather than with undo.
          * This is done in an on unlock operation to ensure the updates are
-         * made while the region lock is still held and the transaction is 
+         * made while the region lock is still held and the transaction is
          * guaranteed committed. If we die while initializing the context,
          * then the transaction does not commit and the context is not used. */
-        nvm_txconfig_ctx ^ctx = 
+        nvm_txconfig_ctx ^ctx =
                 nvm_onunlock(|nvm_txconfig_callback);
         ctx=>tt_append ~= att;
         ctx=>txn_slots ~= cfg->txn_slots;
@@ -4573,7 +4573,7 @@ int nvm_set_txconfig(
         }
 
         /* Create an on unlock operation to update the transaction parameters
-         * in the nvm_region. This cannot be done with normal undo because 
+         * in the nvm_region. This cannot be done with normal undo because
          * recovery scans the transaction tables for transactions to recover
          * and constructs the freelists before any undo is applied. Thus we
          * cannot use undo to make the data structures consistent before they
@@ -4582,10 +4582,10 @@ int nvm_set_txconfig(
          * that they are linked to the list if the allocation is committed.
          * This must be done with careful ordering rather than with undo.
          * This is done in an on unlock operation to ensure the updates are
-         * made while the region lock is still held and the transaction is 
+         * made while the region lock is still held and the transaction is
          * guaranteed committed. If we die while initializing the context,
          * then the transaction does not commit and the context is not used. */
-        nvm_txconfig_ctx *ctx = 
+        nvm_txconfig_ctx *ctx =
                 nvm_onunlock(nvm_extern_nvm_txconfig_callback.usid);
         nvm_trans_table_set(&ctx->tt_append, att);
         ctx->txn_slots = cfg->txn_slots;
@@ -4600,14 +4600,14 @@ int nvm_set_txconfig(
 
 /**
  * Create the initial nvm_trans_table at region creation time.
- * 
+ *
  * @param[in] rg
  * The nvm_region to store the table in.
- * 
- * @param[in] rh 
+ *
+ * @param[in] rh
  * The root heap to do a non-transactional allocation of the table
- * 
- * @return 
+ *
+ * @return
  * The initial nvm_trans_table in NVM. Never returns error.
  */
 #ifdef NVM_EXT
@@ -4634,12 +4634,12 @@ void nvm_create_trans_table(
     /* Update nvm_region to describe this transaction table. This configuration
      * ensures a transaction never waits for undo because there is enough
      * undo for all transactions to hit maximum. */
-    rg=>nvtt_list ~= tt;    
+    rg=>nvtt_list ~= tt;
     rg=>max_transactions ~= TRANS_TABLE_SLOTS / 2;
     rg=>max_undo_blocks ~= TRANS_TABLE_UNDO_BLKS / (TRANS_TABLE_SLOTS / 2);
 }
 #else
-void nvm_create_trans_table(   
+void nvm_create_trans_table(
         nvm_region *rg,
         nvm_heap * rh
         )
@@ -4648,7 +4648,7 @@ void nvm_create_trans_table(
      * default initialization of all pointers to NULL, data to zero, and
      * correct USID values is adequate for nvm_trans_table, except for the
      * slot numbers and state. */
-    nvm_trans_table *tt = nvm_allocNT(rh, shapeof(nvm_trans_table));    
+    nvm_trans_table *tt = nvm_allocNT(rh, shapeof(nvm_trans_table));
     if (tt == NULL)
         nvms_assert_fail("Insufficent space to create initial trans table");
     int s;
@@ -4662,7 +4662,7 @@ void nvm_create_trans_table(
     /* Update nvm_region to describe this transaction table. This configuration
      * ensures a transaction never waits for undo because there is enough
      * undo for all transactions to hit maximum. */
-    nvm_trans_table_set(&rg->nvtt_list, tt);    
+    nvm_trans_table_set(&rg->nvtt_list, tt);
     //    rg->nvtt_cnt = 1; // only one table initially
     rg->max_transactions = TRANS_TABLE_SLOTS / 2;
     rg->max_undo_blocks = TRANS_TABLE_UNDO_BLKS / (TRANS_TABLE_SLOTS / 2);
@@ -4673,12 +4673,12 @@ void nvm_create_trans_table(
  * This spawns recovery threads to take over dead transactions and end them.
  * It scans the dead transaction list in the transaction table and spawns
  * a thread to recover any that have not yet had a recovery thread spawned,
- * or had a thread spawned that apparently died before taking over the 
+ * or had a thread spawned that apparently died before taking over the
  * transaction.
- * 
- * The caller must hold the trans_mutex for the transaction table data. It 
+ *
+ * The caller must hold the trans_mutex for the transaction table data. It
  * is still held on return.
- * 
+ *
  * @param ttd
  * Pointer to the transaction table to scan.
  */
@@ -4691,11 +4691,11 @@ void nvm_recover_dead(nvm_trans_table_data * ttd)
         return; // nothing to do
 
     /* Loop through the list of dead transactions. The caller acquired the
-     * transaction mutex so that the list will not change while we scan. We 
+     * transaction mutex so that the list will not change while we scan. We
      * keep the low bits of time in seconds so that we can decide when failure
      * to dequeue a dead transaction implies the spawned thread died. */
     uint16_t now = (uint16_t)(nvms_utime() / 1000000);
-    nvm_transaction ^link;
+    nvm_transaction ^link = NULL;
     for (; tx; tx = link)
     {
         /* If a thread was already spawned see if it has been long enough to
@@ -4749,11 +4749,11 @@ void nvm_recover_dead(nvm_trans_table_data * ttd)
         return; // nothing to do
 
     /* Loop through the list of dead transactions. The caller acquired the
-     * transaction mutex so that the list will not change while we scan. We 
+     * transaction mutex so that the list will not change while we scan. We
      * keep the low bits of time in seconds so that we can decide when failure
      * to dequeue a dead transaction implies the spawned thread died. */
     uint16_t now = (uint16_t)(nvms_utime() / 1000000);
-    nvm_transaction *link;
+    nvm_transaction *link = NULL;
     for (; tx; tx = link)
     {
         /* If a thread was already spawned see if it has been long enough to
@@ -4805,8 +4805,8 @@ void nvm_recover_dead(nvm_trans_table_data * ttd)
  * transactions. Each transaction is either aborted or its commit is
  * completed, depending on its state. It is called in a new thread
  * created by nvms_spawn_txrecovery. When it returns the thread should
- * exit gracefully. 
- * 
+ * exit gracefully.
+ *
  * @param ctx
  * This is the context pointer passed to nvms_spawn_txrecover. It is an
  * application global address.
@@ -4898,7 +4898,7 @@ void nvm_txrecover(void *ctx)
             break;
         }
     }}
-    
+
     /* Transaction is now recovered and might already be in use by another
      * thread. We have done our job so exit this thread. */
     nvm_thread_fini();
@@ -5001,16 +5001,16 @@ void nvm_txrecover(void *ctx)
 #endif //NVM_EXT
 
 /**
- * Ensure the NVM transaction system for this region is ready for use. This 
- * may be called multiple times by multiple threads. If initialization is 
- * already done then this will return quickly. It is possible that the 
- * thread doing recovery is not the same thread that did the attach. It may 
+ * Ensure the NVM transaction system for this region is ready for use. This
+ * may be called multiple times by multiple threads. If initialization is
+ * already done then this will return quickly. It is possible that the
+ * thread doing recovery is not the same thread that did the attach. It may
  * have died or lost the race to lock the region.
- * 
+ *
  * Construct the nvm_trans_table_data in volatile memory. If there are any
  * active or committing transactions they will be recovered. The volatile
- * transaction table data is allocated from application global memory. 
- * 
+ * transaction table data is allocated from application global memory.
+ *
  * This must be called with the application data mutex held to ensure the
  * region is not detached while looking at the region. However the mutex
  * is unlocked and relocked if recovery is actually spawned.
@@ -5144,7 +5144,7 @@ void nvm_recover(nvm_desc desc)
         {
             nvm_undo_blk ^ub = %tt=>undo_blks[u];
 
-            /* Skip the undo blocks that have undo to apply. They will be 
+            /* Skip the undo blocks that have undo to apply. They will be
              * released after recovery. */
             if (ub=>count != 0)
                 continue;
@@ -5175,11 +5175,11 @@ void nvm_recover(nvm_desc desc)
         }
         tx = tx=>link;
     }
-    
+
     /* Make sure all the changes are persistent. */
     nvm_persist();
 
-    /* Recovery started so we can put the nvm_trans_table_data in the 
+    /* Recovery started so we can put the nvm_trans_table_data in the
      * region data for transactions to use. */
     rd->trans_table = ttd;
     nvms_unlock_mutex(rd->mutex);
@@ -5201,7 +5201,7 @@ void nvm_recover(nvm_desc desc)
     nvms_unlock_mutex(ad->mutex);
 
     /* For every transaction that needs recovery we spawn a recovery thread
-     * to either abort the transaction or complete committing it. Once the 
+     * to either abort the transaction or complete committing it. Once the
      * thread is running it will remove its transaction from the dead list. */
     nvm_recover_dead(ttd);
 
@@ -5362,7 +5362,7 @@ void nvm_recover(nvm_desc desc)
             nvm_undo_blk *ub = &tt->undo_blks[u];
             nvm_verify(ub, shapeof(nvm_undo_blk));
 
-            /* Skip the undo blocks that have undo to apply. They will be 
+            /* Skip the undo blocks that have undo to apply. They will be
              * released after recovery. */
             if (ub->count != 0)
                 continue;
@@ -5392,11 +5392,11 @@ void nvm_recover(nvm_desc desc)
         }
         tx = tx->link;
     }
-    
+
     /* Make sure all the changes are persistent. */
     nvm_persist();
 
-    /* Recovery started so we can put the nvm_trans_table_data in the 
+    /* Recovery started so we can put the nvm_trans_table_data in the
      * region data for transactions to use. */
     rd->trans_table = ttd;
     nvms_unlock_mutex(rd->mutex);
@@ -5418,7 +5418,7 @@ void nvm_recover(nvm_desc desc)
     nvms_unlock_mutex(ad->mutex);
 
     /* For every transaction that needs recovery we spawn a recovery thread
-     * to either abort the transaction or complete committing it. Once the 
+     * to either abort the transaction or complete committing it. Once the
      * thread is running it will remove its transaction from the dead list. */
     nvm_recover_dead(ttd);
 
@@ -5444,15 +5444,15 @@ void nvm_recover(nvm_desc desc)
 /**
  * This counts the number of share locks on an NVM mutex before beginning
  * recovery of the dead transactions at NVM region attach time.
- * 
+ *
  * @param[in] ttd
  * The volatile memory transaction table data. It has the linked list of dead
  * transactions to scan.
- * 
+ *
  * @param[in] mutex
  * The mutex to search for.
- * 
- * @return 
+ *
+ * @return
  */
 #ifdef NVM_EXT
 int nvm_find_shares(nvm_trans_table_data *ttd, nvm_amutex ^mutex)
@@ -5495,16 +5495,16 @@ int nvm_find_shares(nvm_trans_table_data *ttd, nvm_amutex *mutex)
 
 /**
  * This checks to see if the region is ready for a clean detach. It must
- * not have any active transactions. Once this is verified, future 
+ * not have any active transactions. Once this is verified, future
  * transactions are prevented from starting. If there are dead transactions
  * in recovery this will block until the recovery is done.
- * 
+ *
  * This is called and returns with the application data mutex locked
- * 
+ *
  * @param[in] rd
  * The region data for the region to detach
- * 
- * @return 
+ *
+ * @return
  * 1 if no errors, 0 if failed and errno has an error.
  */
 int nvm_trans_detach(nvm_region_data * rd)
@@ -5527,9 +5527,9 @@ int nvm_trans_detach(nvm_region_data * rd)
 }
 
 /**
- * This frees up a nvm_trans_table_data allocated by nvm_recover. 
+ * This frees up a nvm_trans_table_data allocated by nvm_recover.
  * @param trans_table points to trans_table pointer in region data
- * @return 
+ * @return
  */
 int nvm_trans_free_table(nvm_trans_table_data **trans_table)
 {

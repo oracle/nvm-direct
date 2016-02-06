@@ -120,7 +120,7 @@ SOFTWARE.
 
 /*---------------------------- nvm_usid_qualify ------------------------------*/
 /**\brief This qualifies a 128 bit random number for use as a USID
- * 
+ *
  * A 128 bit random number does not qualify as a USID if it looks too much
  * like application data or if it has the same value when endianess is
  * changed. For debugging and checking corruption it is sometimes useful
@@ -129,9 +129,9 @@ SOFTWARE.
  * these scans. If a region file is copied from one platform to another
  * it could have the wrong endianess. A USID mismatch is used to recognize
  * when a persistent struct is from an incompatible platform.
- * 
+ *
  * There are three reasons that a 128 bit random number would be rejected
- * as a USID.: 
+ * as a USID.:
  *     1. At least one byte must have a sign bit set to eliminate ASCII
  *        strings looking like a USID.
  *     2. There must not be any uint16_t values that are 0x0000 or 0xFFFF.
@@ -139,11 +139,11 @@ SOFTWARE.
  *        the actual value and are thus sign extended with 0 or 1 bits.
  *     3. The d2 field must not be a palindrome that is the same for
  *        both big and little endian platforms.
- * 
+ *
  * @param[in] usid
  * This is the USID to check for being qualified. Note it is the whole USID
  * not a pointer to a USID.
- * 
+ *
  * @return
  * True if qualified and false if it does not qualify.
  */
@@ -179,8 +179,8 @@ int nvm_usid_qualify(nvm_usid usid)
 }
 /**
  * Local routine to return the current USID hash map. If there is none then
- * an empty one is created. 
- * 
+ * an empty one is created.
+ *
  * @return  Pointer to the map for this process.
  */
 static nvm_usid_map *nvm_usid_get_map()
@@ -256,32 +256,61 @@ static int nvm_usid_register1(
 
     return 1; // success
 }
-/**\brief This registers USID to global symbol mappings for an executable. 
- * 
- * The USID map utility constructs a C source file that defines a  *nvm_extern
- * array and a *nvm_types array. There could be more than one such arrays in an
- * application. Typically each library will have arrays for the USID's
- * defined by that library. Before attaching any NVM regions all the 
- * relevant USID mappings will be passed to nvm_usid_register_externs and 
- * nvm_usid_register_types.
- * 
+/**\brief This registers one USID to global symbol mapping.
+ *
  * USID registration must be done in the process before it attaches to any
  * NVM regions. Since USID registration is done once at process start there
  * is no lock to support simultaneous calls from different threads.
- * 
+ *
  * There must not be any duplicate USID's that map to different addresses
  * in the same process. Every USID must pass the nvm_usid_qulaify checks.
  * If any of these tests fail then nvm_usid_register_extern will assert
  * killing the process.
- * 
- * It is not fatal to register the same mapping twice. The second mapping is
- * ignored, but the return value is 0 to indicate there were redundant 
+ *
+ * It is not fatal to register the same mapping twice. The second mapping
+ * is ignored, but the return value is 0 to indicate there were redundant
  * mappings.
- * 
- * @param[in] syms 
+ *
+ * @param[in] sym
+ * A pointer to the USID global definitions to register in the hash
+ * table for this process.
+ *
+ * @return 1 if the mapping is saved, 0 if this is a redundant mapping that is
+ * ignored.,
+ */
+int nvm_usid_register_extern(const nvm_extern *sym)
+{
+    nvm_usid_map *map = nvm_usid_get_map();
+
+    return nvm_usid_register1(map, sym->usid, sym->addr, sym->arg, sym->name);
+}
+
+/**\brief This registers USID to global symbol mappings for an executable.
+ *
+ * The USID map utility constructs a C source file that defines a  *nvm_extern
+ * array and a *nvm_types array. There could be more than one such arrays in an
+ * application. Typically each library will have arrays for the USID's
+ * defined by that library. Before attaching any NVM regions all the
+ * relevant USID mappings will be passed to nvm_usid_register_externs and
+ * nvm_usid_register_types.
+ *
+ * USID registration must be done in the process before it attaches to any
+ * NVM regions. Since USID registration is done once at process start there
+ * is no lock to support simultaneous calls from different threads.
+ *
+ * There must not be any duplicate USID's that map to different addresses
+ * in the same process. Every USID must pass the nvm_usid_qulaify checks.
+ * If any of these tests fail then nvm_usid_register_extern will assert
+ * killing the process.
+ *
+ * It is not fatal to register the same mapping twice. The second mapping is
+ * ignored, but the return value is 0 to indicate there were redundant
+ * mappings.
+ *
+ * @param[in] syms
  * An array of pointers to USID global definitions to register in the hash
  * table for this process. The array is null terminated.
- * 
+ *
  * @return 1 if all mappings saved, 0 if there are redundant mappings that are
  * ignored.,
  */
@@ -302,13 +331,30 @@ int nvm_usid_register_externs(const nvm_extern *const syms[])
     /* Report if there were any duplicate entries.*/
     return unique;
 }
+
+/**
+ * This is identical to nvm_usid_register_extern except that the input is a
+ * pointer to an nvm_type struct.
+ *
+ * @param[in] type
+ * A pointer to an nvm_type struct to register.
+ *
+ * @return 1 if mapping saved, 0 if this is a redundant mapping that is
+ * ignored.,
+ */
+int nvm_usid_register_type(const nvm_type *type)
+{
+    nvm_usid_map *map = nvm_usid_get_map();
+    return nvm_usid_register1(map, type->usid, (void*)type, NULL, type->name);
+}
+
 /**
  * This is identical to nvm_usid_register_externs except that the input is an
  * array of pointers to nvm_type structs. The array ends with a NULL pointer.
- * 
- * @param[in] types 
+ *
+ * @param[in] types
  * A null terminated array of pointers to nvm_type structs to register.
- * 
+ *
  * @return 1 if all mappings saved, 0 if there are redundant mappings that are
  * ignored.,
  */
@@ -337,10 +383,10 @@ int nvm_usid_register_types(const nvm_type *const types[])
  * Initialize the USID map for this process. This is called by the first thread
  * of a process to call nvm_thread_init. It allocates a map and initializes it
  * with the mappings for the nvm library.
- * 
+ *
  * @param pd
  * The canidate nvm_process_data struct. It is not yet the process data.
- * 
+ *
  * @param ents
  * The size of the USID map in entries. The map should be about half full to
  * perform well.
@@ -383,7 +429,7 @@ const nvm_extern *nvm_usid_find(
     /* Get the current map. */
     nvm_usid_map *map = nvm_usid_get_map();
 
-    /* Probe the table until we find the matching entry or an available 
+    /* Probe the table until we find the matching entry or an available
      * entry. An available entry means the USID was not registered. This
      * uses the same search algorithm used to register the USID. See
      * nvm_usid_register1 for details */
@@ -395,7 +441,7 @@ const nvm_extern *nvm_usid_find(
     {
         /* If this is an available entry then the USID was not registered
          * so we return failure. If we did not find the entry after 64
-         * probes, then it could not have been registered because the 
+         * probes, then it could not have been registered because the
          * registration would have failed. */
         if (map->map[probe].usid.d2 == 0 || full++ >= 64)
         {
@@ -412,20 +458,20 @@ const nvm_extern *nvm_usid_find(
     return &map->map[probe];
 }
 /**
- * This converts a USID into an address in volatile memory. The USID must 
- * have been declared as a persistent struct type or with some global 
- * symbol. If the USID is for a persistent struct type then a pointer to 
- * the nvm_type instance for the struct is returned. If it is for some 
+ * This converts a USID into an address in volatile memory. The USID must
+ * have been declared as a persistent struct type or with some global
+ * symbol. If the USID is for a persistent struct type then a pointer to
+ * the nvm_type instance for the struct is returned. If it is for some
  * other global symbol, then the value of the symbol is returned. The lookup
- * is in a hash map built at runtime so that it is relatively fast. 
- * 
- * This is not normally called directly by an application. Usually a USID 
- * pointer is declared using "|" rather than "*", and dereferencing the 
+ * is in a hash map built at runtime so that it is relatively fast.
+ *
+ * This is not normally called directly by an application. Usually a USID
+ * pointer is declared using "|" rather than "*", and dereferencing the
  * USID pointer calls nvm_usid_volatile to convert the USID into a volatile
  * memory address.
 
- * The hash map is built by nvm_usid_register so the USID to address 
- * mapping must be passed to it. A null pointer is returned if the USID is 
+ * The hash map is built by nvm_usid_register so the USID to address
+ * mapping must be passed to it. A null pointer is returned if the USID is
  * not found in the USID hash map.
 
  * @param[in] usid This is a 16 byte USID to map to a global symbol

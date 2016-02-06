@@ -46,56 +46,56 @@ SOFTWARE.
       USID's with global symbols in the executable and persistent struct types.
 
     NOTES\n
-      USID stands for Unique Symbol IDentifier. It is a 128 bit true random 
+      USID stands for Unique Symbol IDentifier. It is a 128 bit true random
       number based on some physical phenomenon. These are defined in the source
-      code by an attribute of the form 
+      code by an attribute of the form
       USID("xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx")
-      where the x characters are hex digits in 8 groups of 4 separated by 
+      where the x characters are hex digits in 8 groups of 4 separated by
       white space. You can go to http://www.random.org/integers/?num=8&min=0&
-      max=65535&col=8&base=16&format=html to 8 get truly random hex values of 
+      max=65535&col=8&base=16&format=html to 8 get truly random hex values of
       16 bits each separated by white space that you can paste into your code.
- 
-      About one time in 7300 the random number will not conform to the 
-      restrictions imposed on a USID. If this happens then you will get a 
-      compile error and must choose another random number. You can avoid most 
-      invalid USID values by not using a random number where one group of 
-      4 characters is "0000" or "ffff". If you do not see any bytes that start 
-      with 8, 9, a, b, c, d, e, or f, then it will also be rejected. 
 
-      A USID is similar to a GUID or UUID, but has some differences. It does 
-      not conform to RFC4122 because all bits are randomly chosen. However 
-      about one in 7,300 random numbers are rejected. This ensures a USID is 
-      different depending on the bit field ordering and endianess of the 
-      platform. However, most values are rejected to reduce the chance of a 
-      USID matching application data. See nvm_usid_qualify for a more detailed 
+      About one time in 7300 the random number will not conform to the
+      restrictions imposed on a USID. If this happens then you will get a
+      compile error and must choose another random number. You can avoid most
+      invalid USID values by not using a random number where one group of
+      4 characters is "0000" or "ffff". If you do not see any bytes that start
+      with 8, 9, a, b, c, d, e, or f, then it will also be rejected.
+
+      A USID is similar to a GUID or UUID, but has some differences. It does
+      not conform to RFC4122 because all bits are randomly chosen. However
+      about one in 7,300 random numbers are rejected. This ensures a USID is
+      different depending on the bit field ordering and endianess of the
+      platform. However, most values are rejected to reduce the chance of a
+      USID matching application data. See nvm_usid_qualify for a more detailed
       description of the restrictions.
 
-      Any symbol defined in an executable (i.e. nm will display it) can be 
-      associated with a USID that can be used as the symbol value in NVM. This 
-      is accomplished by preceding the declaration of the symbol with a USID 
-      attribute. Note that the value must never be changed once chosen, since 
+      Any symbol defined in an executable (i.e. nm will display it) can be
+      associated with a USID that can be used as the symbol value in NVM. This
+      is accomplished by preceding the declaration of the symbol with a USID
+      attribute. Note that the value must never be changed once chosen, since
       that could make existing NVM regions corrupt.
 
-      At run time a hash table is constructed to map the USID values to symbol 
-      values. Normally "&symbol" is an expression that evaluates to the 
-      symbol value. The USID of a symbol is represented by the expression 
-      "|symbol". It is a link time error if the symbol does not have a USID 
-      defined. A variable can be declared as a USID pointer by preceding the 
-      variable name with "|".  For example, "int |iptr;" would declare a 
-      pointer to an integer in volatile memory that is stored as a USID. The 
-      pointer is bound to a real address at run time by looking up the USID in 
-      the hash table. Each process may have a different value for the symbol 
+      At run time a hash table is constructed to map the USID values to symbol
+      values. Normally "&symbol" is an expression that evaluates to the
+      symbol value. The USID of a symbol is represented by the expression
+      "|symbol". It is a link time error if the symbol does not have a USID
+      defined. A variable can be declared as a USID pointer by preceding the
+      variable name with "|".  For example, "int |iptr;" would declare a
+      pointer to an integer in volatile memory that is stored as a USID. The
+      pointer is bound to a real address at run time by looking up the USID in
+      the hash table. Each process may have a different value for the symbol
       since it might have a different executable.
 
-      Since USID values are random numbers it is theoretically possible that 
-      there could be two values that are the same. This is detected when 
-      building the hash table at process startup. The process will exit if 
-      there are two attempts to register the same USID with different symbol 
-      values. Thus any conflict will be detected long before the code is 
-      debugged. In any case, the chances two independently chosen USID values 
-      being the same is vanishingly small. If you need a thousand USID's for 
-      your application, then the chance of any two being the same is much less 
-      likely than the earth being simultaneously hit by two independent 
+      Since USID values are random numbers it is theoretically possible that
+      there could be two values that are the same. This is detected when
+      building the hash table at process startup. The process will exit if
+      there are two attempts to register the same USID with different symbol
+      values. Thus any conflict will be detected long before the code is
+      debugged. In any case, the chances two independently chosen USID values
+      being the same is vanishingly small. If you need a thousand USID's for
+      your application, then the chance of any two being the same is much less
+      likely than the earth being simultaneously hit by two independent
       extinction event asteroids in the same second on Friday Jan 13, 2113
       at 13:13:13 GMT. This is based on the presumption that such an asteroid
       hits the earth about once every 128 million years, or 2**52 seconds.
@@ -121,10 +121,10 @@ extern "C"
     /* PUBLIC TYPES AND CONSTANTS */
     /**\brief nvm_usid holds a 128 bit Unique Symbol ID used in NVM as an
      * external symbol defined by the executable.
-     * 
+     *
      * This is a 128 bit true random number that passes all the checks in
      * nvm_usid_qualify()
-     * 
+     *
      * The NVM library uses USID's as references stored in NVM to global symbols
      * defined by the executable. It has 16 byte alignment to simplify scanning
      * NVM for an occurance of the USID.
@@ -143,7 +143,7 @@ extern "C"
 #define NVM_USID_EQ(G1, G2) ((G1).d1 == (G2).d1 && (G1).d2 == (G2).d2)
 
     /**\brief This defines one USID to symbol mapping
-     * 
+     *
      * One instance of nvm_extern is initialized at compile time for every
      * global symbol that can have a USID in NVM as a reference to the symbol.
      * This does not include symbols for nvm_type definitions.
@@ -167,7 +167,7 @@ extern "C"
          * passing to nvm_onabort or nvm_oncommit. If this is a callback, then
          * this points to the nvm_type describing the struct allocated as a
          * context for the callback. A callback is a function that has a USID
-         * defined and has one argument that is a pointer to a persistent 
+         * defined and has one argument that is a pointer to a persistent
          * struct.
          */
         const struct nvm_type *arg;
@@ -181,7 +181,7 @@ extern "C"
     typedef struct nvm_extern nvm_extern;
 
     /**\brief Persistent struct field types in an nvm_type.
-     * 
+     *
      * This enum describes the possible field types found in an nvm_field
      */
     enum nvm_field_type
@@ -199,7 +199,7 @@ extern "C"
         nvm_field_char = 10, ///< array of characters
     };
     /**\brief Reasons a USID may appear in a persistent struct.
-     * 
+     *
      * When the ftype of a field is nvm_field_usid, then the description
      * contains one of these values to aid in validating the USID.
      */
@@ -209,14 +209,14 @@ extern "C"
         nvm_usid_self = 1, ///< the USID of the struct containing the USID
         nvm_usid_struct = 2, ///< The USID of some other struct
         nvm_usid_func = 3, ///< A USID associated with a global function
-        nvm_usid_data = 4, ///< A USID for a global data structure 
+        nvm_usid_data = 4, ///< A USID for a global data structure
     };
     typedef enum nvm_usid_purpose nvm_usid_purpose;
 
     typedef struct nvm_field nvm_field;
     typedef struct nvm_type nvm_type; // forward reference
     typedef struct nvm_union nvm_union; // forward reference
-    
+
     /**\brief Data describing one field in a persistent struct
      *
      * For each field in a persistent struct there needs to be an initialized
@@ -232,7 +232,7 @@ extern "C"
         const uint64_t ftype : 7;
 
         /**
-         * This is true if the field was declared transient. It will be 
+         * This is true if the field was declared transient. It will be
          * reinitialized at attach. If it is a pointer it is not self-relative
          * even if it points to NVM.
          */
@@ -257,7 +257,7 @@ extern "C"
 
             /**
              * The ftype is an integer or floating point number, and this
-             * gives the size of the number in bits. This is also used for 
+             * gives the size of the number in bits. This is also used for
              * padding
              */
             const uint64_t bits;
@@ -268,7 +268,7 @@ extern "C"
             const nvm_usid_purpose purp;
 
             /**
-             * The ftype is a pointer to a persistent struct. This points to 
+             * The ftype is a pointer to a persistent struct. This points to
              * the definition of the target struct.
              */
             const nvm_type * const structptr;
@@ -281,13 +281,13 @@ extern "C"
             const nvm_field * const ptr;
 
             /**
-             * The ftype is embedded persistent struct. This points to the 
+             * The ftype is embedded persistent struct. This points to the
              * definition of the embedded struct.
              */
             const nvm_type * const pstruct;
 
             /**
-             * The ftype is embedded persistent union. This points to the 
+             * The ftype is embedded persistent union. This points to the
              * definition of the embedded union.
              */
             const nvm_union * const punion;
@@ -300,12 +300,12 @@ extern "C"
     };
     /**\brief Data describing one persistent struct
      *
-     * Every struct that is allocated in NVM has a global nvm_type which is 
-     * initialized at compile time. It has the global name nvm_type_XXX 
-     * where XXX is the struct name. The nvm_type contains all the 
+     * Every struct that is allocated in NVM has a global nvm_type which is
+     * initialized at compile time. It has the global name nvm_type_XXX
+     * where XXX is the struct name. The nvm_type contains all the
      * information necessary to parse and display an instance of the struct.
-     * 
-     * It is used when allocating a persistent struct in an NVM heap. It is 
+     *
+     * It is used when allocating a persistent struct in an NVM heap. It is
      * used for checking NVM for corrupt data. It is used for displaying an
      * NVM struct when browsing.
      */
@@ -314,26 +314,26 @@ extern "C"
         /**
          * This is the USID expected at byte 0 of every instance of the struct.
          * If no USID was defined for the persistent struct then this is zero.
-         * A persistent stuct without a USID can be embedded in another 
+         * A persistent stuct without a USID can be embedded in another
          * persistent struct, but it cannot be allocated from an NVM heap.
          */
         const nvm_usid usid;
 
         /**
          * This is the struct name as it appears in the source code. It is a
-         * syntax error to have a persistent struct without a name. 
+         * syntax error to have a persistent struct without a name.
          */
         const char * const name;
 
         /**
          * The source code can tag a struct with a descriptive string. It
-         * is displayed to the user when browsing NVM. This points to 
+         * is displayed to the user when browsing NVM. This points to
          * the string constant, or 0 if there is no tag.
          */
         const char * const tag;
 
         /**
-         * This is the size of the struct in bytes. It is the value that 
+         * This is the size of the struct in bytes. It is the value that
          * sizeof(type) would return if given the struct type.
          */
         const size_t size;
@@ -341,14 +341,14 @@ extern "C"
         /**
          * If this is non-zero then the struct ends in an array of zero length
          * which can be given a size when allocated. This is known as an
-         * extensible struct. The value of xsize gives the size of each entry 
+         * extensible struct. The value of xsize gives the size of each entry
          * in the extensible array at the end of the struct.
          */
         const size_t xsize;
 
         /**
          * The source code can describe the first software release that
-         * supports a persistent struct by giving a 4 byte version number. If 
+         * supports a persistent struct by giving a 4 byte version number. If
          * no version is given then the version is 0.
          */
         const uint32_t version;
@@ -360,7 +360,7 @@ extern "C"
         const uint32_t align;
 
         /**
-         * A persistent struct declaration can specify a new version of the 
+         * A persistent struct declaration can specify a new version of the
          * struct that can be converted to in place. This is useful for cases
          * where padding is consumed by a new field. The struct with the new
          * field keeps the old struct name, but gets a new USID. The old USID
@@ -376,7 +376,7 @@ extern "C"
 #endif //NVM_EXT
 
         /**
-         * If there is an upgrade function, then this must point to the 
+         * If there is an upgrade function, then this must point to the
          * nvm_type instance for the new persistent struct. It is 0 if
          * there is no upgrade possible.
          */
@@ -390,7 +390,7 @@ extern "C"
         const size_t field_cnt;
 
         /**
-         * Immediately following the nvm_type for a persistent struct is a 
+         * Immediately following the nvm_type for a persistent struct is a
          * variable length array of nvm_field instances that describe all the
          * fields in the struct.
          */
@@ -398,14 +398,14 @@ extern "C"
     };
     /**\brief Data describing one persistent union
      *
-     * Every union that is allocated in NVM has a global nvm_union which is 
-     * initialized at compile time. It has the global name nvm_union_XXX 
+     * Every union that is allocated in NVM has a global nvm_union which is
+     * initialized at compile time. It has the global name nvm_union_XXX
      * where XXX is the union name. It is followed by a null terminated
-     * array of pointers to the nvm_type descriptions of the various 
+     * array of pointers to the nvm_type descriptions of the various
      * persistent structs that are in the union. The nvm_union contains all the
      * information necessary to parse and display an instance of the union.
-     * 
-     * It is used when allocating a persistent struct in an NVM heap. It is 
+     *
+     * It is used when allocating a persistent struct in an NVM heap. It is
      * used for checking NVM for corrupt data. It is used for displaying an
      * NVM union when browsing.
      */
@@ -413,20 +413,20 @@ extern "C"
     {
         /**
          * This is the union name as it appears in the source code. It is a
-         * syntax error to have a persistent union without a name. 
+         * syntax error to have a persistent union without a name.
          */
         const char * const name;
 
         /**
-         * This is the size of the union in bytes. It is the value that 
+         * This is the size of the union in bytes. It is the value that
          * sizeof(type) would return if given the union type.
          */
         const size_t size;
 
         /**
-         * Immediately following the nvm_union for a persistent union is a 
+         * Immediately following the nvm_union for a persistent union is a
          * variable length array of nvm_type pointers that describe all the
-         * structs in the union. A persistent union can only be a union of 
+         * structs in the union. A persistent union can only be a union of
          * persistent structs that have USID's defined for them.
          */
         const nvm_type * const types[];
@@ -434,7 +434,7 @@ extern "C"
 
     /* EXPORT FUNCTIONS */
     /**\brief This qualifies a 128 bit random number for use as a USID
-     * 
+     *
      * A 128 bit random number does not qualify as a USID if it looks too much
      * like application data or if it has the same value when endianess is
      * changed. For debugging and checking corruption it is sometimes useful
@@ -443,9 +443,9 @@ extern "C"
      * these scans. If a region file is copied from one platform to another
      * it could have the wrong endianess. A USID mismatch is used to recognize
      * when a persistent struct is from an incompatible platform.
-     * 
+     *
      * There are three reasons that a 128 bit random number would be rejected
-     * as a USID.: 
+     * as a USID.:
      *     1. At least one byte must have a sign bit set to eliminate ASCII
      *        strings looking like a USID.
      *     2. There must not be any uint16_t values that are 0x0000 or 0xFFFF.
@@ -453,11 +453,11 @@ extern "C"
      *        the actual value and are thus sign extended with 0 or 1 bits.
      *     3. The d2 field must not be a palindrome that is the same for
      *        both big and little endian platforms.
-     * 
+     *
      * @param[in] usid
      * This is the USID to check for being qualified. Note it is the whole USID
      * not a pointer to an USID.
-     * 
+     *
      * @return
      * True if qualified and false if it does not qualify.
      */
@@ -465,45 +465,81 @@ extern "C"
         nvm_usid usid
         );
 
-    /**\brief This registers USID to global symbol mappings for an executable. 
-     * 
-     * The USID map utility constructs a C source file that defines a 
-     **nvm_extern array and a *nvm_types array. There could be more than one 
-     *such arrays in an application. Typically each library will have arrays
-     * for the USID's defined by that library. Before attaching any NVM regions
-     * all the relevant USID mappings will be passed to
-     * nvm_usid_register_externs and nvm_usid_register_types.
-     * 
+    /**\brief This registers one USID to global symbol mapping.
+     *
      * USID registration must be done in the process before it attaches to any
      * NVM regions. Since USID registration is done once at process start there
      * is no lock to support simultaneous calls from different threads.
-     * 
+     *
      * There must not be any duplicate USID's that map to different addresses
      * in the same process. Every USID must pass the nvm_usid_qulaify checks.
      * If any of these tests fail then nvm_usid_register_extern will assert
      * killing the process.
-     * 
-     * It is not fatal to register the same mapping twice. The second mapping is
-     * ignored, but the return value is 0 to indicate there were redundant 
+     *
+     * It is not fatal to register the same mapping twice. The second mapping
+     * is ignored, but the return value is 0 to indicate there were redundant
      * mappings.
-     * 
-     * @param[in] syms 
+     *
+     * @param[in] sym
+     * A pointer to the USID global definitions to register in the hash
+     * table for this process.
+     *
+     * @return 1 if the mapping is saved, 0 if this is a redundant mapping that
+     * is ignored.,
+     */
+    int nvm_usid_register_extern(const nvm_extern *sym);
+
+    /**\brief This registers USID to global symbol mappings for an executable.
+     *
+     * The USID map utility constructs a C source file that defines a
+     **nvm_extern array and a *nvm_types array. There could be more than one
+     *such arrays in an application. Typically each library will have arrays
+     * for the USID's defined by that library. Before attaching any NVM regions
+     * all the relevant USID mappings will be passed to
+     * nvm_usid_register_externs and nvm_usid_register_types.
+     *
+     * USID registration must be done in the process before it attaches to any
+     * NVM regions. Since USID registration is done once at process start there
+     * is no lock to support simultaneous calls from different threads.
+     *
+     * There must not be any duplicate USID's that map to different addresses
+     * in the same process. Every USID must pass the nvm_usid_qulaify checks.
+     * If any of these tests fail then nvm_usid_register_extern will assert
+     * killing the process.
+     *
+     * It is not fatal to register the same mapping twice. The second mapping is
+     * ignored, but the return value is 0 to indicate there were redundant
+     * mappings.
+     *
+     * @param[in] syms
      * An array of pointers to USID global definitions to register in the hash
      * table for this process. The array is null terminated.
-     * 
+     *
      * @return 1 if all mappings saved, 0 if there are redundant mappings that
      * are ignored.,
      */
     int nvm_usid_register_externs(const nvm_extern *const syms[]);
 
     /**
+     * This is identical to nvm_usid_register_extern except that the input is
+     * a pointer to an nvm_type struct.
+     *
+     * @param[in] type
+     * A pointer to an nvm_type struct to register.
+     *
+     * @return 1 if mapping saved, 0 if this is a redundant mapping that is
+     * ignored.,
+     */
+    int nvm_usid_register_type(const nvm_type *type);
+
+    /**
      * This is identical to nvm_usid_register_externs except that the input is
-     * an array of pointers to nvm_type structs. The array ends with a NULL 
+     * an array of pointers to nvm_type structs. The array ends with a NULL
      * pointer.
-     * 
-     * @param[in] types 
+     *
+     * @param[in] types
      * A null terminated array of pointers to nvm_type structs to register.
-     * 
+     *
      * @return  1 if successful, 0 if duplicate of an existing entry found.
      */
     int nvm_usid_register_types(const nvm_type * const types[]);
@@ -530,22 +566,22 @@ extern "C"
     }
 #else
 #endif //NVM_EXT
-    
+
     /**
-     * This converts a USID into an address in volatile memory. The USID must 
-     * have been declared as a persistent struct type or with some global 
-     * symbol. If the USID is for a persistent struct type then a pointer to 
-     * the nvm_type instance for the struct is returned. If it is for some 
+     * This converts a USID into an address in volatile memory. The USID must
+     * have been declared as a persistent struct type or with some global
+     * symbol. If the USID is for a persistent struct type then a pointer to
+     * the nvm_type instance for the struct is returned. If it is for some
      * other global symbol, then the value of the symbol is returned. The lookup
-     * is in a hash map built at runtime so that it is relatively fast. 
-     * 
-     * This is not normally called directly by an application. Usually a USID 
-     * pointer is declared using "|" rather than "*", and dereferencing the 
+     * is in a hash map built at runtime so that it is relatively fast.
+     *
+     * This is not normally called directly by an application. Usually a USID
+     * pointer is declared using "|" rather than "*", and dereferencing the
      * USID pointer calls nvm_usid_volatile to convert the USID into a volatile
      * memory address.
 
-     * The hash map is built by nvm_usid_register so the USID to address 
-     * mapping must be passed to it. A null pointer is returned if the USID is 
+     * The hash map is built by nvm_usid_register so the USID to address
+     * mapping must be passed to it. A null pointer is returned if the USID is
      * not found in the USID hash map.
 
      * @param[in] usid This is a 16 byte USID to map to a global symbol
@@ -585,29 +621,29 @@ extern "C"
     }
 
     /**
-     * This will verify that the NVM pointer points to the indicated type of 
-     * persistent struct. The USID pointed to is compared with the USID in the 
-     * type definition. If they are equal the routine returns. If they do not 
-     * match then the USID in NVM is looked up to find its nvm_type. If it is 
-     * not found, or is for a type that cannot be upgraded to the expected 
-     * type, then an error is reported. The upgrade functions are called to 
-     * upgrade the current object to the desired one. Each upgrade function is 
+     * This will verify that the NVM pointer points to the indicated type of
+     * persistent struct. The USID pointed to is compared with the USID in the
+     * type definition. If they are equal the routine returns. If they do not
+     * match then the USID in NVM is looked up to find its nvm_type. If it is
+     * not found, or is for a type that cannot be upgraded to the expected
+     * type, then an error is reported. The upgrade functions are called to
+     * upgrade the current object to the desired one. Each upgrade function is
      * called in its own transaction, which may be nested if there is a current
-     * transaction. The upgrade function might return an error based on the 
-     * current compatibility setting. It is presumed that the application will 
-     * only use pointer types that are compatible with the current 
-     * compatibility setting. After a successful call to the upgrade function 
+     * transaction. The upgrade function might return an error based on the
+     * current compatibility setting. It is presumed that the application will
+     * only use pointer types that are compatible with the current
+     * compatibility setting. After a successful call to the upgrade function
      * the new USID is transactionally stored and the transaction committed.
      *
-     * This function is not normally called directly by an application. The 
-     * preprocessor adds calls to this function before the first use of an NVM 
-     * pointer within a function. The goal is to catch stale pointers before 
+     * This function is not normally called directly by an application. The
+     * preprocessor adds calls to this function before the first use of an NVM
+     * pointer within a function. The goal is to catch stale pointers before
      * they can corrupt an NVM region.
-     * 
-     * If there are any errors then corruption is reported and the process 
+     *
+     * If there are any errors then corruption is reported and the process
      * exits. Returning an error code is not practical since there are so many
      * calls to this and the application developer is not aware of them.
-     * 
+     *
      * @param[in] ptr A pointer to a persistent struct in NVM with a USID
      * @param[in] def Pointer to nvm_type that describes the struct.
      */
@@ -640,7 +676,7 @@ extern "C"
             nvm_upgrade(ptr, def);
     }
 #endif //NVM_EXT
-    
+
 #ifdef NVM_EXT
     /* precompiler implements shapeof() internally */
 #else
