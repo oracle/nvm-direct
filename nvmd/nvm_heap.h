@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
@@ -46,9 +46,9 @@ SOFTWARE.
       heaps and allocating/freeing NVM managed by the heap.
 
     NOTES\n
-      When an NVM region is created the base extent is formatted as an NVM 
-      heap. The root struct is allocated from the heap in the base extent. 
-      Additional application data is allocated as needed. Additional heaps can 
+      When an NVM region is created the base extent is formatted as an NVM
+      heap. The root struct is allocated from the heap in the base extent.
+      Additional application data is allocated as needed. Additional heaps can
       be created and deleted as other region extents. Each heap can be given a
       name for administrative purposes.
 
@@ -66,12 +66,12 @@ extern "C"
 #else
     NVM_SRP(nvm_heap); // self relative pointer to heap
 #endif //NVM_EXT
-    
-    
+
+
     /**\brief Status of one heap.
-     * 
-     * This struct describes the current state of a heap. 
-     * It is used for returning status to the application. 
+     *
+     * This struct describes the current state of a heap.
+     * It is used for returning status to the application.
      */
 #ifdef NVM_EXT
     struct nvm_heap_stat
@@ -103,7 +103,7 @@ extern "C"
         size_t psize;
 
         /**
-         * This is the amount of free space in the entire extent in bytes. 
+         * This is the amount of free space in the entire extent in bytes.
          */
         size_t free;
 
@@ -154,7 +154,7 @@ extern "C"
         size_t psize;
 
         /**
-         * This is the amount of free space in the entire extent in bytes. 
+         * This is the amount of free space in the entire extent in bytes.
          */
         size_t free;
 
@@ -184,7 +184,7 @@ extern "C"
      * the same address as the extent address passed in. The heap pointer
      * can be retrieved later via nvm_query_extents if it is not saved in NVM
      * by the application.
-     * 
+     *
      * This must be called in a transaction for the region containing the heap.
      * If the transaction aborts or rolls back through this call, then the
      * heap and its extent will be deleted. The transaction that creates this
@@ -192,91 +192,91 @@ extern "C"
      * itself commits. However other transactions may not use the heap until
      * the creating transaction successfully commits.
      *
-     * The address range for the new extent must not overlap any existing 
-     * extent. It must be within the NVM virtual address space reserved for the 
-     * region. It must be page aligned and the size must be a multiple of a 
+     * The address range for the new extent must not overlap any existing
+     * extent. It must be within the NVM virtual address space reserved for the
+     * region. It must be page aligned and the size must be a multiple of a
      * page size.
-     * 
+     *
      * If there are any errors then errno is set and the return value is zero.
-     * 
+     *
      * @param[in] region
      * This is the region descriptor for the region to create the heap in. It
      * was returned by either nvm_create_region or nvm_attach_region.
-     * 
+     *
      * @param[in] extent
      * This is the desired virtual address for the new extent.
-     * 
+     *
      * @param[in] psize
      * This is the amount of physical NVM to allocate for the extent in bytes.
-     * 
+     *
      * @param[in] name
      * An administrative name for the heap. It is used for reporting. It may not
      * be more than 63 characters long.
-     * 
-     * @return 
+     *
+     * @return
      * A pointer to the new heap is returned. Zero is returned if there
      * is an error.
-     * 
+     *
      * @par Errors:
      */
 #ifdef NVM_EXT
     nvm_heap ^nvm_create_heap@(
         nvm_desc region,
-        void ^extent,   
+        void ^extent,
         size_t psize,
         const char *name
        );
 #else
-    nvm_heap *nvm_create_heap(   
+    nvm_heap *nvm_create_heap(
         nvm_desc region,
-        void *extent,    
+        void *extent,
         size_t psize,
         const char *name
        );
 #endif //NVM_EXT
-    
+
     /**
      * This function changes the size of an existing heap managed extent. If
      * the new size is larger, then the heap in the extent will have more
      * memory available for allocation. If the new size is smaller, then there
      * must not be any allocations in the area to be removed. The root heap may
      * be resized.
-     * 
+     *
      * This may be called in a transaction for the same region or outside a
      * transaction. In either case a successful heap resize is persistently
      * committed, even if called in a transaction that later aborts. Other
      * threads could allocate the new space even before nvm_ resize _heap
      * returns. Thus the library cannot generate undo to rollback the resize
      * if the callers transaction aborts.
-     * 
+     *
      * An error will be returned if the extent cannot be resized. The address
      * range for the extent must not overlap any existing extent. It must be
      * within the NVM virtual address space reserved for the region. The new
      * size must be a multiple of a page size and not zero.
-     * 
+     *
      * If there are any errors then errno is set and the return value is zero.
-     * 
+     *
      * @param heap
      * Heap pointer returned from nvm_create_heap
-     * 
+     *
      * @param psize
      * New physical size of heap extent in bytes
-     * 
-     * @return 
+     *
+     * @return
      * 0 is returned on error and 1 is returned on success.
      */
 #ifdef NVM_EXT
-    int nvm_resize_heap( 
-        nvm_heap ^heap, // Heap pointer returned from nvm_create_heap 
+    int nvm_resize_heap(
+        nvm_heap ^heap, // Heap pointer returned from nvm_create_heap
         size_t psize // New physical size of heap extent in bytes
         );
 #else
     int nvm_resize_heap(
-        nvm_heap *heap, // Heap pointer returned from nvm_create_heap 
+        nvm_heap *heap, // Heap pointer returned from nvm_create_heap
         size_t psize // New physical size of heap extent in bytes
         );
 #endif //NVM_EXT
-    
+
     /**
      * Delete a heap and remove its extent returning its space to the
      * file system. The contents of the extent are ignored, except the nvm_heap
@@ -284,25 +284,25 @@ extern "C"
      * heap can be deleted without encountering any corruption. The caller must
      * ensure all pointers to the heap or to any objects in the heap are
      * removed before committing.
-     * 
+     *
      * This must be called in a transaction for the region containing the heap.
      * If the transaction aborts or rolls back through this call, then the
      * heap and its extent will be not be deleted. However any attempt to
      * allocated, or free from the heap will fail until the transaction
      * commits removing the heap extent. If the transaction rolls back through
      * this deletion, then the heap will return to normal operation.
-     * 
+     *
      * If there are any errors then errno is set and the return value is zero.
-     * 
+     *
      * @param[in] heap
      * This points to the heap to delete
-     * 
+     *
      * @param[out] ret
      * This points to a pointer to clear atomically with the delete of the heap
-     * 
-     * @return 
+     *
+     * @return
      * 0 is returned on error and 1 is returned on success.
-     * 
+     *
      * @par Errors:
      */
 #ifdef NVM_EXT
@@ -310,7 +310,7 @@ extern "C"
         nvm_heap ^heap
         );
 #else
-    int nvm_delete_heap(   
+    int nvm_delete_heap(
         nvm_heap *heap
         );
 #endif //NVM_EXT
@@ -350,23 +350,23 @@ extern "C"
     /**
      * This returns the status of a heap. Note that the data returned might not
      * be current if some other thread has used the heap.
-     * 
+     *
      * By querying all extents all heaps can be found and queried.
-     * 
+     *
      * If there are any errors then errno is set and the return value is zero.
-     * 
-     * @param heap 
+     *
+     * @param heap
      * Heap to query
-     * 
-     * @param stat 
+     *
+     * @param stat
      * Stat buffer for return data
-     * 
-     * @return 
+     *
+     * @return
      * 0 is returned on error and 1 is returned on success.
      */
 #ifdef NVM_EXT
     int nvm_query_heap(
-        nvm_heap ^heap, 
+        nvm_heap ^heap,
         nvm_heap_stat *stat
         );
 #else
@@ -375,75 +375,101 @@ extern "C"
         nvm_heap_stat *stat
         );
 #endif //NVM_EXT
-    
+
     /**
-     * This allocates one or more instances of the persistent struct described 
-     * by the nvm_type, from the nvm_heap passed in. The struct must have a 
-     * USID defined. This must be called in a transaction that stores the 
-     * returned pointer in an NVM location that is reachable from the root 
-     * struct. 
-     * 
-     * The count is the number of instances of a struct to allocate in an 
-     * array. This must be at least one. A persistent struct is extensible if 
-     * its last field is a zero length array. If the persistent struct defined 
-     * by the nmv_type is extensible, then the count describes the actual size 
-     * of the empty array at the end of the struct. This allocates one instance
-     * of the persistent struct defined by *def with a non-zero array size for 
-     * the last field in the struct. The allocation will be for 
-     * (def->size+(def->xsize*count)) bytes. If the persistent struct defined 
-     * by *def is not extensible, then the count argument is the array size of 
-     * structs defined by *def. The allocation will be for (def->size*count) 
-     * bytes.
-     * 
-     * The space returned is cleared to zero except that all USID fields are 
-     * set to the correct values and self-relative pointers are set to NULL 
-     * which actually is a one. This includes the USID for the struct being 
-     * allocated as well as any embedded structs. An embedded union is given 
-     * the USID of its first member.
-     * 
-     * If the transaction rolls back through this allocation, the allocated 
-     * space will be released back to the free list. Thus it is not necessary 
-     * to create undo for any stores to the new space until the transaction 
-     * commits.
-     * 
-     * If there are any errors then errno is set and the return value is zero.
-     * 
-     * @param[in] heap
-     * This is the heap to allocate from
-     * 
+     * This returns the size in bytes of the minimum allocation for a
+     * persistent struct. This is useful for sizing NVM regions. The size
+     * returned includes the nvm_blk that is allocated just before the
+     * application data. It does not include space that may be wasted to 
+     * avoid leaving behind a tiny free block.
+     *
      * @param[in] def
      * This points to the nvm_type of the persistent struct to allocate. It must
      * have a USID defined for it.
-     * 
+     *
      * @param[in] count
      * This is the size of the array to allocate. For an extensible struct this
      * is the array size of the last field. For a non-extensible struct this is
      * the number of structs to allocate. One is passed if this is not
      * an array allocation.
-     * 
-     * @return 
+     *
+     * @return
+     * The number of NVM bytes consumed if the allocation does not get
+     * extended to avoid leaving a tiny block of free space.
+     */
+    size_t nvm_alloc_size(
+        const nvm_type *def, // type definition of struct to size
+        unsigned count // size of the array
+    );
+
+    /**
+     * This allocates one or more instances of the persistent struct described
+     * by the nvm_type, from the nvm_heap passed in. The struct must have a
+     * USID defined. This must be called in a transaction that stores the
+     * returned pointer in an NVM location that is reachable from the root
+     * struct.
+     *
+     * The count is the number of instances of a struct to allocate in an
+     * array. This must be at least one. A persistent struct is extensible if
+     * its last field is a zero length array. If the persistent struct defined
+     * by the nmv_type is extensible, then the count describes the actual size
+     * of the empty array at the end of the struct. This allocates one instance
+     * of the persistent struct defined by *def with a non-zero array size for
+     * the last field in the struct. The allocation will be for
+     * (def->size+(def->xsize*count)) bytes. If the persistent struct defined
+     * by *def is not extensible, then the count argument is the array size of
+     * structs defined by *def. The allocation will be for (def->size*count)
+     * bytes.
+     *
+     * The space returned is cleared to zero except that all USID fields are
+     * set to the correct values and self-relative pointers are set to NULL
+     * which actually is a one. This includes the USID for the struct being
+     * allocated as well as any embedded structs. An embedded union is given
+     * the USID of its first member.
+     *
+     * If the transaction rolls back through this allocation, the allocated
+     * space will be released back to the free list. Thus it is not necessary
+     * to create undo for any stores to the new space until the transaction
+     * commits.
+     *
+     * If there are any errors then errno is set and the return value is zero.
+     *
+     * @param[in] heap
+     * This is the heap to allocate from
+     *
+     * @param[in] def
+     * This points to the nvm_type of the persistent struct to allocate. It must
+     * have a USID defined for it.
+     *
+     * @param[in] count
+     * This is the size of the array to allocate. For an extensible struct this
+     * is the array size of the last field. For a non-extensible struct this is
+     * the number of structs to allocate. One is passed if this is not
+     * an array allocation.
+     *
+     * @return
      * A pointer to the newly allocated space unless there is an error. A zero
      * is returned when there is an error
-     * 
+     *
      * @par Errors:
      */
 #ifdef NVM_EXT
-    void ^nvm_alloc@( 
-        nvm_heap ^heap, 
+    void ^nvm_alloc@(
+        nvm_heap ^heap,
         const nvm_type *def, // type definition of struct to allocate
         unsigned count // size of the array
         );
 #else
-    void *nvm_alloc(   
-        nvm_heap *heap,    
+    void *nvm_alloc(
+        nvm_heap *heap,
         const nvm_type *def, // type definition of struct to allocate
         unsigned count // size of the array
         );
 #endif //NVM_EXT
-    
+
     /**
-     * This is a macro that calls nvm_alloc based on the struct type. It casts 
-     * the return value to the correct type and finds the nvm_type address 
+     * This is a macro that calls nvm_alloc based on the struct type. It casts
+     * the return value to the correct type and finds the nvm_type address
      * based on the struct type.
      */
 #ifdef NVM_EXT
@@ -453,63 +479,63 @@ extern "C"
 #define NVM_ALLOC(heap, type, count) \
     ((type*)nvm_alloc((heap), shapeof(type), (count)))
 #endif //NVM_EXT
-    
+
     /**
-     * This frees memory that was allocated by nvm_alloc. This must be called 
-     * in a transaction. The space is not available for other allocations until 
-     * the transaction successfully commits. Releasing the space and clearing 
-     * the memory is done as an oncommit operation in the current transaction. 
+     * This frees memory that was allocated by nvm_alloc. This must be called
+     * in a transaction. The space is not available for other allocations until
+     * the transaction successfully commits. Releasing the space and clearing
+     * the memory is done as an oncommit operation in the current transaction.
      * The caller is obligated to clear any pointers to the allocated space.
-     * 
+     *
      * If there are any errors then errno is set and the return value is zero.
-     * 
+     *
      * @param[in] ptr
      * This is a pointer that was returned by nvm_alloc, and has not been
      * freed since.
-     * 
-     * @return 
+     *
+     * @return
      * 0 is returned on error and 1 is returned on success.
-     * 
+     *
      * @par Errors:
      */
 #ifdef NVM_EXT
-    int nvm_free@( 
-        void ^ptr 
+    int nvm_free@(
+        void ^ptr
         );
 #else
-    int nvm_free(   
-        void *ptr    
+    int nvm_free(
+        void *ptr
         );
 #endif //NVM_EXT
-    
+
     /**
      * This initializes one or more instances of the persistent struct described
      * by the nvm_type and located at addr. If the struct is extensible (last
      * member is a zero length array), then count is the actual size of the
      * array. If the struct is not extensible, then count is the number of
      * instances of the struct in the array starting at addr.
-     * 
+     *
      * The memory is cleared just as if it had been allocated from an NVM heap.
      * All numeric fields and transient fields are set to zero. All self-
      * relative pointers are set to the null pointer value which is 1. If the
      * struct or any embedded structs have a USID defined for them, then the
      * correct USID is stored. If there is a union then it is initialized as
      * if it was the first persistent struct in the union.
-     * 
+     *
      * This may be called in a transaction or not in a transaction. Since it
      * does not require a transaction it does not generate undo. Usually this
      * is called on freshly allocated space that will be freed if the current
      * transaction does not commit.
-     * 
+     *
      * @param addr
      * persistent memory location to initialize
-     * 
+     *
      * @param def
      * type definition of struct to initialize
-     * 
+     *
      * @param count
      * size of the array
-     * 
+     *
      * @return The number of bytes initialized
      */
 #ifdef NVM_EXT
@@ -525,7 +551,7 @@ extern "C"
         int count // size of the array
         );
 #endif //NVM_EXT
-    
+
 
 #ifdef	__cplusplus
 }

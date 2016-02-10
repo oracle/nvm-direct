@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
@@ -46,9 +46,9 @@ SOFTWARE.
       NVM managed by the heap.
 
     NOTES\n
-      When an NVM region is created the base extent is formatted as an NVM 
-      heap. The root struct is allocated from the heap in the base extent. 
-      Additional application data is allocated as needed. Additional heaps can 
+      When an NVM region is created the base extent is formatted as an NVM
+      heap. The root struct is allocated from the heap in the base extent.
+      Additional application data is allocated as needed. Additional heaps can
       be created and deleted as other region extents. Each heap can be given a
       name for administrative purposes.
 
@@ -95,7 +95,7 @@ static void nvm_alloc_init_1(void *addr, const nvm_type *tp);
  * There are a number of free lists for various block sizes. Each list
  * only contains blocks with usable space within one power of 2. Except
  * for the last list which has the huge blocks of any size.
- * 
+ *
  * This array defines the max usable block size for each free list.
  */
 static const size_t free_size_init[FREELIST_CNT] = {
@@ -114,22 +114,22 @@ static const size_t free_size_init[FREELIST_CNT] = {
 /**
  * This creates the root heap in the base extent. This is called before
  * there is a transaction table so it is done non-transactionally. The
- * heap is left in a state where nvm_allocNT can be used to do permanent 
+ * heap is left in a state where nvm_allocNT can be used to do permanent
  * allocation. This does not need to be transactional because the USID
  * in the nvm_region is zero indicating the region is not yet initialized
- * 
+ *
  * @param[in] name
  * This is the name of the root heap which is the same as the name of the
  * region.
- * 
+ *
  * @param[in] region
  * This points to the nvm_region at the base of the region.
- * 
+ *
  * @param[in] pspace
- * This is the size of the base extent. The root heap follows the 
+ * This is the size of the base extent. The root heap follows the
  * nvm_region.
- * 
- * @return 
+ *
+ * @return
  * Pointer to the root heap. Any errors fire an assert.
  */
 #ifdef NVM_EXT
@@ -139,7 +139,7 @@ nvm_heap ^nvm_create_rootheap(
         size_t pspace
         )
 {
-    /* This code assumes some struct sizes to create appropriately aligned 
+    /* This code assumes some struct sizes to create appropriately aligned
      * data structures, so assert they are OK.
      */
     if (sizeof(nvm_blk) != NVM_ALIGN)
@@ -160,7 +160,7 @@ nvm_heap *nvm_create_rootheap(
         size_t pspace
         )
 {
-    /* This code assumes some struct sizes to create appropriately aligned 
+    /* This code assumes some struct sizes to create appropriately aligned
      * data structures, so assert they are OK.
      */
     if (sizeof(nvm_blk) != NVM_ALIGN)
@@ -179,28 +179,28 @@ nvm_heap *nvm_create_rootheap(
  * This creates the heap in a heap managed extent. This is called
  * before the extent creation commits so it is done non-transactionally.
  * However it must be called in the transaction that allocated the extent.
- * The heap is left in a state where nvm_allocNT can be used to do 
- * permanent allocation. 
- * 
+ * The heap is left in a state where nvm_allocNT can be used to do
+ * permanent allocation.
+ *
  * @param[in] name
  * This is the name of the heap.
- * 
+ *
  * @param[in] region
  * This points to the nvm_region at the base of the region.
- * 
+ *
  * @param[in] extent
  * This points to the first byte of the extent containing the NVM managed by
  * this heap.
- * 
+ *
  * @param[in] addr
  * The virtual address where the heap NVM starts
- * 
+ *
  * @param[in] bytes
  * This is the size of the NVM to be managed as a heap
- * 
+ *
  * @param[in] slot
  * The slot number of the transaction creating this heap, or zero if none.
- * @return 
+ * @return
  * Pointer to the base heap. Any errors fire an assert.
  */
 #ifdef NVM_EXT
@@ -249,9 +249,9 @@ static nvm_heap ^nvm_create_baseheap(
     nvb_end=>ptr ~= 0;
     nvb_end=>allocated ~= 0;
 
-    /* Initialize the NVM heap. We consider the nvm_blk at the end of the 
+    /* Initialize the NVM heap. We consider the nvm_blk at the end of the
      * heap to be allocated, but the nvm_blk of any free blocks are considered
-     * free. When there is an allocation then all the space in the allocated 
+     * free. When there is an allocation then all the space in the allocated
      * block is considered consumed including its nvm_blk. */
     strncpy((void*)heap=>name, name, sizeof(heap=>name) - 1);
     heap=>region ~= rg;
@@ -263,12 +263,12 @@ static nvm_heap ^nvm_create_baseheap(
     nvm_mutex_init1((nvm_amutex ^)%heap=>heap_mutex, NVM_HEAP_MUTEX_LEVEL);
     heap=>consumed ~= sizeof(nvm_blk) + sizeof(nvm_heap);
     heap=>list.head ~= 0; // nothing allocated yet
-    heap=>list.tail ~= 0; 
+    heap=>list.tail ~= 0;
     heap=>inuse ~= slot; // allow access by creating transaction only
 
     /* copy table of freelist sizes and flush */
     nvm_copy(heap=>free_size, free_size_init, sizeof(heap=>free_size));
-            
+
     /* Make all the freelists empty */
     int i;
     for (i = 0; i < FREELIST_CNT; i++)
@@ -330,9 +330,9 @@ static nvm_heap *nvm_create_baseheap(
     nvb_end->allocated = 0;
     nvm_flush1(nvb_end);
 
-    /* Initialize the NVM heap. We consider the nvm_blk at the end of the 
+    /* Initialize the NVM heap. We consider the nvm_blk at the end of the
      * heap to be allocated, but the nvm_blk of any free blocks are considered
-     * free. When there is an allocation then all the space in the allocated 
+     * free. When there is an allocation then all the space in the allocated
      * block is considered consumed including its nvm_blk. */
     strncpy((void*)heap->name, name, sizeof(heap->name) - 1);
     nvm_region_set(&heap->region, rg);
@@ -349,7 +349,7 @@ static nvm_heap *nvm_create_baseheap(
 
     /* copy table of freelist sizes */
     nvm_copy(heap->free_size, free_size_init, sizeof(heap->free_size));
-            
+
     /* Make all the freelists empty */
     int i;
     for (i = 0; i < FREELIST_CNT; i++)
@@ -370,12 +370,12 @@ static nvm_heap *nvm_create_baseheap(
 /**
  * Slice off the indicated size from the front of the heap. This is
  * only allowed up until the transaction table is ready to use
- * during construction of the segment. Space allocated this way 
+ * during construction of the segment. Space allocated this way
  * cannot ever be freed. This does not support array allocation or
  * extensible struct allocation.
- * 
+ *
  * @param definition of the struct to allocate
- * @return pointer to the allocated bytes, or return NULL if errno 
+ * @return pointer to the allocated bytes, or return NULL if errno
  * has an error.
  */
 #ifdef NVM_EXT
@@ -413,7 +413,7 @@ void ^nvm_allocNT(nvm_heap ^heap, const nvm_type *tp)
     new_free=>ptr ~= 0; // not on free list until finalized
     new_free=>allocated ~= 0; // not allocated
 
-    /* Make the old free nvm_blk be the tail of the allocated list. Note that 
+    /* Make the old free nvm_blk be the tail of the allocated list. Note that
      * the neighbor back pointer is still the same. */
     nvm_blk ^old_tail = heap=>list.tail;
     aloc=>neighbors.fwrd ~= new_free;
@@ -429,7 +429,7 @@ void ^nvm_allocNT(nvm_heap ^heap, const nvm_type *tp)
         /* new allocation is the only one in the heap. */
         heap=>list.head ~= aloc;
     }
-    
+
     /* Advance the free pointer*/
     heap=>nvb_free ~= new_free;
 
@@ -439,7 +439,7 @@ void ^nvm_allocNT(nvm_heap ^heap, const nvm_type *tp)
     nvm_alloc_init(ret, tp, tp->size);
 
     /* return the newly allocated space. It is just after its nvm_blk.
-     * Note that it is not necessary to zero the space because the 
+     * Note that it is not necessary to zero the space because the
      * extent was just created and filled with zero. */
     return ret;
 }
@@ -485,7 +485,7 @@ void *nvm_allocNT(nvm_heap *heap, const nvm_type *tp)
     new_free->allocated = 0; // not allocated
     nvm_flush1(new_free);
 
-    /* Make the old free nvm_blk be the tail of the allocated list. Note that 
+    /* Make the old free nvm_blk be the tail of the allocated list. Note that
      * the neighbor back pointer is still the same. */
     nvm_blk *old_tail = nvm_blk_get(&heap->list.tail);
     nvm_blk_set(&aloc->neighbors.fwrd, new_free);
@@ -516,7 +516,7 @@ void *nvm_allocNT(nvm_heap *heap, const nvm_type *tp)
     nvm_alloc_init(ret, tp, tp->size);
 
     /* return the newly allocated space. It is just after its nvm_blk.
-     * Note that it is not necessary to zero the space because the 
+     * Note that it is not necessary to zero the space because the
      * extent was just created and filled with zero. */
     return ret;
 }
@@ -636,7 +636,7 @@ extern const nvm_extern nvm_extern_nvm_inuse_callback;
  * not the same address as the extent address passed in. The heap pointer
  * can be retrieved later via nvm_query_extents if it is not saved in NVM
  * by the application.
- * 
+ *
  * This must be called in a transaction for the region containing the heap.
  * If the transaction aborts or rolls back through this call, then the
  * heap and its extent will be deleted. The transaction that creates this
@@ -644,37 +644,37 @@ extern const nvm_extern nvm_extern_nvm_inuse_callback;
  * itself commits. However other transactions may not use the heap until
  * the creating transaction successfully commits.
  *
- * The address range for the new extent must not overlap any existing 
- * extent. It must be within the NVM virtual address space reserved for the 
- * region. It must be page aligned and the size must be a multiple of a 
+ * The address range for the new extent must not overlap any existing
+ * extent. It must be within the NVM virtual address space reserved for the
+ * region. It must be page aligned and the size must be a multiple of a
  * page size.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] region
  * This is the region descriptor for the region to create the heap in. It
  * was returned by either nvm_create_region or nvm_attach_region.
- * 
+ *
  * @param[in] extent
  * This is the desired virtual address for the new extent.
- * 
+ *
  * @param[in] psize
  * This is the amount of physical NVM to allocate for the extent in bytes.
- * 
+ *
  * @param[in] name
  * An administrative name for the heap. It is used for reporting. It may not
  * be more than 63 characters long.
- * 
- * @return 
+ *
+ * @return
  * A pointer to the new heap is returned. Zero is returned if there
  * is an error.
- * 
+ *
  * @par Errors:
  */
 #ifdef NVM_EXT
 nvm_heap ^nvm_create_heap@(
         nvm_desc desc,
-        void ^extent,   
+        void ^extent,
         size_t psize,
         const char *name
         )
@@ -714,7 +714,7 @@ nvm_heap ^nvm_create_heap@(
 #else
 nvm_heap *nvm_create_heap(
         nvm_desc desc,
-        void *extent,    
+        void *extent,
         size_t psize,
         const char *name
         )
@@ -755,28 +755,28 @@ nvm_heap *nvm_create_heap(
  * memory available for allocation. If the new size is smaller, then there
  * must not be any allocations in the area to be removed. The root heap may
  * be resized.
- * 
+ *
  * This may be called in a transaction for the same region or outside a
  * transaction. In either case a successful heap resize is persistently
  * committed, even if called in a transaction that later aborts. Other
  * threads could allocate the new space even before nvm_resize_heap
  * returns. Thus the library cannot generate undo to rollback the resize
  * if the caller's transaction aborts.
- * 
+ *
  * An error will be returned if the extent cannot be resized. The address
  * range for the extent must not overlap any existing extent. It must be
  * within the NVM virtual address space reserved for the region. The new
  * size must be a multiple of a page size and not zero.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param heap
  * Heap pointer returned from nvm_create_heap
- * 
+ *
  * @param psize
  * New physical size of heap extent in bytes
- * 
- * @return 
+ *
+ * @return
  * 0 is returned on error and 1 is returned on success.
  */
 #ifdef NVM_EXT
@@ -788,7 +788,7 @@ int nvm_resize_heap(nvm_heap ^heap, size_t psize)
     /* Begin a transaction to do the resize */
     @ rg=>desc { //nvm_txbegin(rg=>desc);
 
-        /* Lock the heap to prevent allocations while we do this. Since we are 
+        /* Lock the heap to prevent allocations while we do this. Since we are
          * going to need the region lock later, lock it now to lock in the
          * correct locking order. */
         nvm_xlock(%rg=>reg_mutex);
@@ -855,7 +855,7 @@ int nvm_resize_heap(nvm_heap ^heap, size_t psize)
         }
         else
         {
-            /*  Growing so clear old end if it will be in the middle of 
+            /*  Growing so clear old end if it will be in the middle of
              * free space. If it is the new last block then leave it alone. */
             if (nvb_end != nvb_last)
             {
@@ -906,7 +906,7 @@ int nvm_resize_heap(nvm_heap ^heap, size_t psize)
             /* Set size of base extent in region header. */
             rg=>header.psize @= psize;
         }
-        
+
         /* Set the size of the extent in the heap. */
         heap=>psize @= psize;
 
@@ -926,7 +926,7 @@ int nvm_resize_heap(nvm_heap *heap, size_t psize)
     /* Begin a transaction to do the resize */
     nvm_txbegin(rg->desc);
 
-    /* Lock the heap to prevent allocations while we do this. Since we are 
+    /* Lock the heap to prevent allocations while we do this. Since we are
      * going to need the region lock later, lock it now to lock in the correct
      * locking order. */
     nvm_xlock(&rg->reg_mutex);
@@ -943,7 +943,7 @@ int nvm_resize_heap(nvm_heap *heap, size_t psize)
     nvm_blk *nvb_last = nvm_blk_get(&nvb_end->neighbors.back);
     nvm_verify(nvb_last, shapeof(nvm_blk));
     if (void_get(&nvb_end->ptr) != NULL)
-        nvms_corruption("End nvm_blk ptr not null", nvb_end, 
+        nvms_corruption("End nvm_blk ptr not null", nvb_end,
                 void_get(&nvb_end->ptr));
 
     /* If shrinking make sure there is space available at the end of the
@@ -995,7 +995,7 @@ int nvm_resize_heap(nvm_heap *heap, size_t psize)
     }
     else
     {
-        /*  Growing so clear old end if it will be in the middle of 
+        /*  Growing so clear old end if it will be in the middle of
          * free space. If it is the new last block then leave it alone. */
         if (nvb_end != nvb_last)
         {
@@ -1050,7 +1050,7 @@ int nvm_resize_heap(nvm_heap *heap, size_t psize)
         rg->header.psize = psize;
         nvm_flush1(&rg->header.psize);
     }
-    
+
     /* Set the size of the extent in the heap. */
     NVM_UNDO(heap->psize);
     heap->psize = psize;
@@ -1070,22 +1070,22 @@ int nvm_resize_heap(nvm_heap *heap, size_t psize)
  * heap can be deleted without encountering any corruption. The caller must
  * ensure all pointers to the heap or to any objects in the heap are
  * removed before committing.
- * 
+ *
  * This must be called in a transaction for the region containing the heap.
  * If the transaction aborts or rolls back through this call, then the
  * heap and its extent will be not be deleted. However any attempt to
  * allocated, or free from the heap will fail until the transaction
  * commits removing the heap extent. If the transaction rolls back through
  * this deletion, then the heap will return to normal operation.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] heap
  * This points to the heap to delete
- * 
- * @return 
+ *
+ * @return
  * 0 is returned on error and 1 is returned on success.
- * 
+ *
  * @par Errors:
  */
 #ifdef NVM_EXT
@@ -1112,7 +1112,7 @@ int nvm_delete_heap@(
 
     /* begin the transaction to mark the heap as deleting. */
    @ {
-        
+
         /* Lock the extent to ensure there are no allocations currently in
          * progress. */
         nvm_xlock(%heap=>heap_mutex);
@@ -1143,7 +1143,7 @@ int nvm_delete_heap@(
     return 1;
 }
 #else
-int nvm_delete_heap(   
+int nvm_delete_heap(
         nvm_heap *heap
         )
 {
@@ -1168,7 +1168,7 @@ int nvm_delete_heap(
 
     /* begin the transaction to mark the heap as deleting. */
     nvm_txbegin(0);
-        
+
     /* Lock the extent to ensure there are no allocations currently in
      * progress. */
     nvm_xlock(&heap->heap_mutex);
@@ -1271,23 +1271,23 @@ void nvm_heap_setroot(nvm_heap *heap, void *root)
 /**
  * This returns the status of a heap Note that the data returned might not
  * be current if some other thread has used the heap.
- * 
- * By querying all extents all heaps can be found and queried.  
- * 
+ *
+ * By querying all extents all heaps can be found and queried.
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
- * @param heap 
+ *
+ * @param heap
  * Heap to query
- * 
- * @param stat 
+ *
+ * @param stat
  * Stat buffer for return data
- * 
- * @return 
+ *
+ * @return
  * 0 is returned on error and 1 is returned on success.
  */
 #ifdef NVM_EXT
 int nvm_query_heap(
-        nvm_heap ^heap, 
+        nvm_heap ^heap,
         nvm_heap_stat *stat
         )
 {
@@ -1334,6 +1334,47 @@ int nvm_query_heap(
 }
 #endif //NVM_EXT
 
+/**
+ * This returns the size in bytes of the minimum allocation for a
+ * persistent struct. This is useful for sizing NVM regions. The size
+ * returned includes the nvm_blk that is allocated just before the
+ * application data. It does not include space that may be wasted to 
+ * avoid leaving behind a tiny free block.
+ *
+ * @param[in] def
+ * This points to the nvm_type of the persistent struct to allocate. It must
+ * have a USID defined for it.
+ *
+ * @param[in] count
+ * This is the size of the array to allocate. For an extensible struct this
+ * is the array size of the last field. For a non-extensible struct this is
+ * the number of structs to allocate. One is passed if this is not
+ * an array allocation.
+ *
+ * @return
+ * The number of NVM bytes consumed if the allocation does not get
+ * extended to avoid leaving a tiny block of free space.
+ */
+size_t nvm_alloc_size(
+    const nvm_type *tp, // type definition of struct to size
+    unsigned count // size of the array
+    )
+{
+    /* Determine how much space is needed. If this is an extensible
+     * struct, then the count is for the extensible array at the end. If
+     * not, then it is the number of structs to allocate in an array. */
+    size_t ret;
+    if (tp->xsize)
+        ret = tp->size + count * tp->xsize;
+    else
+        ret = count * tp->size;
+
+    /* add in the nvm_blk overhead and alignment requirements */
+    size_t aln = shapeof(nvm_blk)->align;
+    ret += sizeof(nvm_blk) + aln - 1;
+    return ret - (ret % aln);
+}
+
 
 /**
  * This is the context for an on abort or on commit operation to return NVM to
@@ -1351,7 +1392,7 @@ void nvm_free_callback@(nvm_free_ctx ^ctx);
 #else
 struct nvm_free_ctx
 {
-    nvm_blk_srp blk;    
+    nvm_blk_srp blk;
 };
 typedef struct nvm_free_ctx nvm_free_ctx;
 extern const nvm_type nvm_type_nvm_free_ctx;
@@ -1359,58 +1400,58 @@ extern const nvm_extern nvm_extern_nvm_free_callback;
 #endif //NVM_EXT
 
 /**
- * This allocates one or more instances of the persistent struct described 
- * by the nvm_type, from the nvm_heap passed in. The struct must have a 
- * USID defined. This must be called in a transaction that stores the 
- * returned pointer in an NVM location that is reachable from the root 
- * struct. 
- * 
- * The count is the number of instances of a struct to allocate in an 
- * array. This must be at least one. A persistent struct is extensible if 
- * its last field is a zero length array. If the persistent struct defined 
- * by the nmv_type is extensible, then the count describes the actual size 
+ * This allocates one or more instances of the persistent struct described
+ * by the nvm_type, from the nvm_heap passed in. The struct must have a
+ * USID defined. This must be called in a transaction that stores the
+ * returned pointer in an NVM location that is reachable from the root
+ * struct.
+ *
+ * The count is the number of instances of a struct to allocate in an
+ * array. This must be at least one. A persistent struct is extensible if
+ * its last field is a zero length array. If the persistent struct defined
+ * by the nmv_type is extensible, then the count describes the actual size
  * of the empty array at the end of the struct. This allocates one instance
- * of the persistent struct defined by *def with a non-zero array size for 
- * the last field in the struct. The allocation will be for 
- * (def->size+(def->xsize*count)) bytes. If the persistent struct defined 
- * by *def is not extensible, then the count argument is the array size of 
- * structs defined by *def. The allocation will be for (def->size*count) 
+ * of the persistent struct defined by *def with a non-zero array size for
+ * the last field in the struct. The allocation will be for
+ * (def->size+(def->xsize*count)) bytes. If the persistent struct defined
+ * by *def is not extensible, then the count argument is the array size of
+ * structs defined by *def. The allocation will be for (def->size*count)
  * bytes.
- * 
- * The space returned is cleared to zero except that all USID fields are 
- * set to the correct values. This includes the USID for the struct being 
- * allocated as well as any embedded structs. An embedded union is given 
+ *
+ * The space returned is cleared to zero except that all USID fields are
+ * set to the correct values. This includes the USID for the struct being
+ * allocated as well as any embedded structs. An embedded union is given
  * the USID of its first member.
- * 
- * If the transaction rolls back through this allocation, the allocated 
- * space will be released back to the free list. Thus it is not necessary 
- * to create undo for any stores to the new space until the transaction 
+ *
+ * If the transaction rolls back through this allocation, the allocated
+ * space will be released back to the free list. Thus it is not necessary
+ * to create undo for any stores to the new space until the transaction
  * commits.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] heap
  * This is the heap to allocate from
- * 
+ *
  * @param[in] def
  * This points to the nvm_type of the persistent struct to allocate. It must
  * have a USID defined for it.
- * 
+ *
  * @param[in] count
  * This is the size of the array to allocate. For an extensible struct this
  * is the array size of the last field. For a non-extensible struct this is
  * the number of structs to allocate. One is passed if this is not
  * an array allocation.
- * 
- * @return 
+ *
+ * @return
  * A pointer to the newly allocated space unless there is an error. A zero
  * is returned when there is an error
- * 
+ *
  * @par Errors:
  */
 #ifdef NVM_EXT
-void ^nvm_alloc@( 
-        nvm_heap ^heap, 
+void ^nvm_alloc@(
+        nvm_heap ^heap,
         const nvm_type *tp, // type definition of struct to allocate
         unsigned count // size of the array
         )
@@ -1481,7 +1522,7 @@ void ^nvm_alloc@(
         heap=>consumed @+= consume;
 
         /* Transactionally store the allocated nvm_blk pointer in the on abort
-         * context. If this nested transaction does not commit, undo will clear 
+         * context. If this nested transaction does not commit, undo will clear
          * the pointer so that the on abort operation will be a no-op. */
         ctx=>blk @= nvb;
 
@@ -1513,7 +1554,7 @@ void ^nvm_alloc@(
         nvm_alloc_init(ret, tp, request);
 
         /* commit the allocation */
-        nvm_commit();    
+        nvm_commit();
 
         /* Return successful allocation. The allocated space immediately follows
          * the nvm_blk describing it. */
@@ -1529,8 +1570,8 @@ fail:
     return 0;
 }
 #else
-void *nvm_alloc(   
-        nvm_heap *heap,    
+void *nvm_alloc(
+        nvm_heap *heap,
         const nvm_type *tp, // type definition of struct to allocate
         unsigned count // size of the array
         )
@@ -1574,8 +1615,8 @@ void *nvm_alloc(
 
     /* Begin a nested transaction to do the allocation. This allows the heap
      * and freelist locks to be dropped before returning. */
-    {    
-        nvm_txbegin(0);    
+    {
+        nvm_txbegin(0);
 
         /* Get the mutex for the heap so we can examine and modify it */
         nvm_xlock(&heap->heap_mutex);
@@ -1601,44 +1642,44 @@ void *nvm_alloc(
         }
 
         /* The amount consumed is the physical size of the allocated block. */
-        nvm_blk *next = nvm_blk_get(&nvb->neighbors.fwrd);    
-        size_t consume = (next - nvb) * sizeof(nvm_blk);    
+        nvm_blk *next = nvm_blk_get(&nvb->neighbors.fwrd);
+        size_t consume = (next - nvb) * sizeof(nvm_blk);
         NVM_UNDO(heap->consumed);
         heap->consumed += consume;
         nvm_flush1(&heap->consumed);
 
         /* Transactionally store the allocated nvm_blk pointer in the on abort
-         * context. If this nested transaction does not commit, undo will clear 
+         * context. If this nested transaction does not commit, undo will clear
          * the pointer so that the on abort operation will be a no-op. */
-        NVM_UNDO(ctx->blk);    
-        nvm_blk_set(&ctx->blk, nvb);    
-        nvm_flush1(&ctx->blk);    
+        NVM_UNDO(ctx->blk);
+        nvm_blk_set(&ctx->blk, nvb);
+        nvm_flush1(&ctx->blk);
 
         /* Mark the newly allocate block as allocated. Undo already generated */
-        nvb->allocated = request;    
+        nvb->allocated = request;
 
         /* Add the allocation at the head of  this heap's allocated list.
          * Note that nvm_alloc_blk already created undo for *nvb. */
-        void_set(&nvb->ptr, heap);    
-        nvm_blk_set(&nvb->group.back, 0);    
+        void_set(&nvb->ptr, heap);
+        nvm_blk_set(&nvb->group.back, 0);
         nvm_blk *olh = nvm_blk_get(&heap->list.head); // old listhead
-        NVM_UNDO(heap->list);    
-        nvm_blk_set(&heap->list.head, nvb);    
-        nvm_blk_set(&nvb->group.fwrd, olh);    
+        NVM_UNDO(heap->list);
+        nvm_blk_set(&heap->list.head, nvb);
+        nvm_blk_set(&nvb->group.fwrd, olh);
         if (olh)
         {
             /* the allocated list is not empty, so point the old head back */
-            NVM_UNDO(olh->group.back);    
-            nvm_blk_set(&olh->group.back, nvb); // old head has back ptr now 
+            NVM_UNDO(olh->group.back);
+            nvm_blk_set(&olh->group.back, nvb); // old head has back ptr now
             nvm_flush1(&olh->group.back);
         }
         else
         {
             /* the allocated list is empty, so now it has one entry. */
-            nvm_blk_set(&heap->list.tail, nvb); // this is now the tail 
+            nvm_blk_set(&heap->list.tail, nvb); // this is now the tail
         }
         nvm_flush(&heap->list, sizeof(heap->list)); //#
-        nvm_flush1(nvb); // new nvm_blk completely updated so flush. 
+        nvm_flush1(nvb); // new nvm_blk completely updated so flush.
 
         /* Do the standard initialization of NVM allocated data. It is just
          * after its nvm_blk.*/
@@ -1646,13 +1687,13 @@ void *nvm_alloc(
         nvm_alloc_init(ret, tp, request);
 
         /* commit the allocation */
-        nvm_commit();    
-        nvm_txend();    
+        nvm_commit();
+        nvm_txend();
 
         /* Return successful allocation. The allocated space immediately follows
          * the nvm_blk describing it. */
         return ret;
-    }       
+    }
 
 
     /* If we fail to allocate, remove the unnecessary on abort undo. This keeps
@@ -1665,26 +1706,26 @@ fail:
 #endif //NVM_EXT
 
 /**
- * This frees memory that was allocated by nvm_alloc. This must be called 
- * in a transaction. The space is not available for other allocations until 
- * the transaction successfully commits. Releasing the space and clearing 
- * the memory is done as an oncommit operation in the current transaction. 
+ * This frees memory that was allocated by nvm_alloc. This must be called
+ * in a transaction. The space is not available for other allocations until
+ * the transaction successfully commits. Releasing the space and clearing
+ * the memory is done as an oncommit operation in the current transaction.
  * The caller is obligated to clear any pointers to the allocated space.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] ptr
  * This is a pointer that was returned by nvm_alloc, and has not been
  * freed since.
- * 
- * @return 
+ *
+ * @return
  * 0 is returned on error and 1 is returned on success.
- * 
+ *
  * @par Errors:
  */
 #ifdef NVM_EXT
-int nvm_free@( 
-        void ^ptr 
+int nvm_free@(
+        void ^ptr
         )
 {
     /* Verify this was allocated by nvm_alloc. It should be preceeded by
@@ -1724,8 +1765,8 @@ int nvm_free@(
     return 1;
 }
 #else
-int nvm_free(   
-        void *ptr    
+int nvm_free(
+        void *ptr
         )
 {
     /* Verify this was allocated by nvm_alloc. It should be preceeded by
@@ -1769,11 +1810,11 @@ int nvm_free(
 #endif //NVM_EXT
 
 /**
- * This is the routine to do the actual freeing of an allocation. It is 
+ * This is the routine to do the actual freeing of an allocation. It is
  * called from committing when committing the delete of an object, or from
  * aborting when rolling back the allocation of an object.
- * 
- * @param[in] ctx 
+ *
+ * @param[in] ctx
  * Pointer to the context created for the on abort or on commit operation.
  */
 #ifdef NVM_EXT
@@ -1795,15 +1836,15 @@ void nvm_free_callback@(nvm_free_ctx ^ctx)
     /* Get the heap pointer */
     nvm_heap ^heap = (nvm_heap ^)nvb=>ptr;
 
-    /* Zero the space being released before getting any locks. This is 
+    /* Zero the space being released before getting any locks. This is
      * idempotent if reapplied. All pointers to the block should have been
      * cleared so there is no need to zero under any lock. */
     nvm_set(nvb + 1, 0, space);
 
     /* Transactionally clear the pointer in the context so that this
-     * operation is idempotent. There is a small window where this 
-     * transaction has committed but the on commit operation is not 
-     * deleted. Clearing the pointer makes the on commit operation a 
+     * operation is idempotent. There is a small window where this
+     * transaction has committed but the on commit operation is not
+     * deleted. Clearing the pointer makes the on commit operation a
      * no-op so that this is not a problem */
     ctx=>blk @= 0;
 
@@ -1866,15 +1907,15 @@ void nvm_free_callback(nvm_free_ctx *ctx)
     nvm_heap *heap = nvm_heap_get(&nvb->ptr);
     nvm_verify(heap, shapeof(nvm_heap));
 
-    /* Zero the space being released before getting any locks. This is 
+    /* Zero the space being released before getting any locks. This is
      * idempotent if reapplied. All pointers to the block should have been
      * cleared so there is no need to zero under any lock. */
     nvm_set(nvb + 1, 0, space);
 
     /* Transactionally clear the pointer in the context so that this
-     * operation is idempotent. There is a small window where this 
-     * transaction has committed but the on commit operation is not 
-     * deleted. Clearing the pointer makes the on commit operation a 
+     * operation is idempotent. There is a small window where this
+     * transaction has committed but the on commit operation is not
+     * deleted. Clearing the pointer makes the on commit operation a
      * no-op so that this is not a problem */
     NVM_UNDO(ctx->blk);
     nvm_blk_set(&ctx->blk, NULL);
@@ -1952,11 +1993,11 @@ static void nvm_badbk(const char *msg, nvm_blk *nvb)
 /**
  * This a check function to look for
  * inconsistencies in an nvm_heap struct .
- * 
- * @param heap 
+ *
+ * @param heap
  * The nvm_heap to check
- * 
- * @return 
+ *
+ * @return
  * Amount of allocated space
  */
 #ifdef NVM_EXT
@@ -1995,7 +2036,7 @@ size_t nvm_freelists_check(nvm_heap ^heap)
                 /* If allocated it must point at heap */
                 if (ptr != (void^)heap)
                     nvm_badbk("Allocated block not pointing to heap", cur);
-                
+
                 /* accumulate amount allocated */
                 ret += (fw - cur) * sizeof(nvm_blk);
 
@@ -2123,7 +2164,7 @@ size_t nvm_freelists_check(nvm_heap *heap)
                 /* If allocated it must point at heap */
                 if (ptr != (void*)heap)
                     nvm_badbk("Allocated block not pointing to heap", cur);
-                
+
                 /* accumulate amount allocated */
                 ret += (fw - cur) * sizeof(nvm_blk);
 
@@ -2267,10 +2308,10 @@ void nvm_heap_test(nvm_desc desc, nvm_heap *heap)
  * This initializes one instance of a struct. It is called recursively
  * for embedded structs and unions. It is called from nvm_alloc_init which
  * takes care of zeroing and flushing the entire allocation.
- * 
+ *
  * @param addr
  * Address in NVM of the struct to initialize
- * 
+ *
  * @param tp
  * The nvm_type describing the struct being allocated
  */
@@ -2323,7 +2364,7 @@ static void nvm_alloc_init_1(void ^addr, const nvm_type *tp)
                 {
                     /* Store a null self relative pointer which is actually an
                      * offset of 1 to distinguish it from a pointer to self */
-                    ^srp ~= 0; 
+                    ^srp ~= 0;
                 }
             }
             bits += 8 * sizeof(void*) * fld->count;
@@ -2366,7 +2407,7 @@ static void nvm_alloc_init_1(void ^addr, const nvm_type *tp)
         fld++;
     }
 
-    /* Initialization of the struct is complete. We should have seen the 
+    /* Initialization of the struct is complete. We should have seen the
      * total number of bits match the size of the struct. */
     if (tp->size * 8 != bits)
         nvms_assert_fail("Sum of field sizes does not match struct size");
@@ -2465,7 +2506,7 @@ static void nvm_alloc_init_1(void *addr, const nvm_type *tp)
         fld++;
     }
 
-    /* Initialization of the struct is complete. We should have seen the 
+    /* Initialization of the struct is complete. We should have seen the
      * total number of bits match the size of the struct. */
     if (tp->size * 8 != bits)
         nvms_assert_fail("Sum of field sizes does not match struct size");
@@ -2477,12 +2518,12 @@ static void nvm_alloc_init_1(void *addr, const nvm_type *tp)
  * When a struct is allocated it is initialized to a null state. All numeric
  * values are zeroed, and all pointers are set to be null, which is an offset
  * of 1.
- * @param[in] addr 
+ * @param[in] addr
  * Address of allocated memory
- * 
- * @param[in] tp 
+ *
+ * @param[in] tp
  * Definition of the allocated struct
- * 
+ *
  * @param[in] size
  * The number of bytes allocated. This will be larger than tp->size if this
  * was an array allocation or an extensible struct allocation.
@@ -2514,12 +2555,12 @@ void nvm_alloc_init(void ^addr, const nvm_type *tp, size_t size)
         }
     }
 
-    /* If this is an extensible struct, then initialization is slightly 
+    /* If this is an extensible struct, then initialization is slightly
      * different. */
     if (tp->xsize == 0)
     {
         /* This is not an extensible struct. If size is greater than tp->size
-         * then that indicates an array of structs was allocated. Thus the 
+         * then that indicates an array of structs was allocated. Thus the
          * size allocated must be an exact multiple of tp->size. */
         if (size % tp->size != 0)
             nvms_assert_fail("Allocated array size is not a multiple of "
@@ -2538,7 +2579,7 @@ void nvm_alloc_init(void ^addr, const nvm_type *tp, size_t size)
          * through the extensible array at the end of the struct.  */
         nvm_alloc_init_1(addr, tp);
 
-        /* Find the nvm_field for the extensible array at the end of the 
+        /* Find the nvm_field for the extensible array at the end of the
          * struct being allocated. Verify it is for a zero length array of
          * embedded structs. */
         const nvm_field *fld = &tp->fields[tp->field_cnt - 1];
@@ -2569,7 +2610,7 @@ void nvm_alloc_init(void ^addr, const nvm_type *tp, size_t size)
                 {
                     /* Store a null self relative pointer which is actually an
                      * offset of 1 to distinguish it from a pointer to self */
-                    ^srp ~= 0; 
+                    ^srp ~= 0;
                 }
             }
             break;
@@ -2639,12 +2680,12 @@ void nvm_alloc_init(void *addr, const nvm_type *tp, size_t size)
         }
     }
 
-    /* If this is an extensible struct, then initialization is slightly 
+    /* If this is an extensible struct, then initialization is slightly
      * different. */
     if (tp->xsize == 0)
     {
         /* This is not an extensible struct. If size is greater than tp->size
-         * then that indicates an array of structs was allocated. Thus the 
+         * then that indicates an array of structs was allocated. Thus the
          * size allocated must be an exact multiple of tp->size. */
         if (size % tp->size != 0)
             nvms_assert_fail("Allocated array size is not a multiple of "
@@ -2663,7 +2704,7 @@ void nvm_alloc_init(void *addr, const nvm_type *tp, size_t size)
          * through the extensible array at the end of the struct.  */
         nvm_alloc_init_1(addr, tp);
 
-        /* Find the nvm_field for the extensible array at the end of the 
+        /* Find the nvm_field for the extensible array at the end of the
          * struct being allocated. Verify it is for a zero length array of
          * embedded structs. */
         const nvm_field *fld = &tp->fields[tp->field_cnt - 1];
@@ -2683,7 +2724,7 @@ void nvm_alloc_init(void *addr, const nvm_type *tp, size_t size)
         {
             /* This is an array of self-relative pointers to NVM. They all
              * need to be set to a null pointer unless transient. */
-            if (!fld->tflag) 
+            if (!fld->tflag)
             {
                 void_srp * srp = (void_srp*)((uint8_t*)addr + tp->size);
                 int count = (size - tp->size) / sizeof(void_srp);
@@ -2739,23 +2780,23 @@ void nvm_alloc_init(void *addr, const nvm_type *tp, size_t size)
  * member is a zero length array), then count is the actual size of the
  * array. If the struct is not extensible, then count is the number of
  * instances of the struct in the array starting at addr.
- * 
+ *
  * The memory is cleared just as if it had been allocated from an NVM heap.
  * All numeric fields and transient fields are set to zero. All self-
  * relative pointers are set to the null pointer value which is 1. If the
  * struct or any embedded structs have a USID defined for them, then the
  * correct USID is stored. If there is a union then it is initialized as
  * if it was the first persistent struct in the union.
- * 
+ *
  * @param addr
  * persistent memory location to initialize
- * 
+ *
  * @param def
  * type definition of struct to initialize
- * 
+ *
  * @param count
  * size of the array
- * 
+ *
  * @return The number of bytes initialized
  */
 #ifdef NVM_EXT
@@ -2788,12 +2829,12 @@ size_t nvm_init_struct(void *addr, const nvm_type *tp, int count)
 }
 #endif //NVM_EXT
 /**
- * This creates undo to restore an nvm_blk on abort. It is important to 
+ * This creates undo to restore an nvm_blk on abort. It is important to
  * not store the USID contiguously in the undo since a region browser
  * can scan NVM looking for that 16 byte USID. If it encountered
  * one in undo it would consider it to be a corrupt nvm_blk.
- * 
- * @param nvb 
+ *
+ * @param nvb
  * Pointer to the nvm_blk to restore on abort.
  */
 #ifdef NVM_EXT
@@ -2929,7 +2970,7 @@ static void nvm_freelist_unlink@(nvm_blk ^nvb)
     }
     else
     {
-        /* Is the tail of the its freelist, so there is a new tail now. 
+        /* Is the tail of the its freelist, so there is a new tail now.
          * First verify the freelist agrees this is the tail. */
         nvm_list ^fl = nvb=>ptr;
         if (fl=>tail != nvb)
@@ -2949,7 +2990,7 @@ static void nvm_freelist_unlink@(nvm_blk ^nvb)
     }
     else
     {
-        /* Is the head of the its freelist, so there is a new head now. 
+        /* Is the head of the its freelist, so there is a new head now.
          * First verify the freelist agrees this is the tail. */
         nvm_list ^fl = nvb=>ptr;
         if (fl=>head != nvb)
@@ -2979,7 +3020,7 @@ static void nvm_freelist_unlink(nvm_blk *nvb)
     }
     else
     {
-        /* Is the tail of the its freelist, so there is a new tail now. 
+        /* Is the tail of the its freelist, so there is a new tail now.
          * First verify the freelist agrees this is the tail. */
         nvm_list *fl = void_get(&nvb->ptr);
         if (nvm_blk_get(&fl->tail) != nvb)
@@ -3003,7 +3044,7 @@ static void nvm_freelist_unlink(nvm_blk *nvb)
     }
     else
     {
-        /* Is the head of the its freelist, so there is a new head now. 
+        /* Is the head of the its freelist, so there is a new head now.
          * First verify the freelist agrees this is the tail. */
         nvm_list *fl = void_get(&nvb->ptr);
         if (nvm_blk_get(&fl->head) != nvb)
@@ -3020,29 +3061,29 @@ static void nvm_freelist_unlink(nvm_blk *nvb)
 #endif //NVM_EXT
 
 /**
- * This finds an available block for the indicated allocation size and 
- * alignment. The return value is a pointer to an nvm_blk for a chunk that is 
+ * This finds an available block for the indicated allocation size and
+ * alignment. The return value is a pointer to an nvm_blk for a chunk that is
  * large enough to hold the desired allocation. The nvm_blk is no longer on a
  * freelist, but is not on any allocated list.
- * 
+ *
  * The transaction contains undo to restore the nvm_blk to its original
  * contents as well as the freelist. Thus the caller may modify other
  * fields in the nvm_blk without additional undo. The allocated space will
  * be zeroed on rollback so no undo is needed for initializing the space
  * allocated.
- * 
- * The transaction also holds a lock on the mutex protecting the 
+ *
+ * The transaction also holds a lock on the mutex protecting the
  * free list so that the allocation can be committed or rolled back.
- * 
+ *
  * @param request
  * The minimum amount of space needed.
- * 
+ *
  * @param align
  * The required alignment for the allocated space.
- * 
+ *
  * @return
  * Pointer to an nvm_blk with enough space and alignment, or NULL if no space
- * is available. 
+ * is available.
  */
 #ifdef NVM_EXT
 static nvm_blk ^nvm_alloc_blk@(nvm_heap ^heap, size_t request, uint32_t align)
@@ -3065,9 +3106,9 @@ static nvm_blk ^nvm_alloc_blk@(nvm_heap ^heap, size_t request, uint32_t align)
         }
 
     /* Pick a block to allocate from. For now this just takes the first block
-     * that is large enough. If there is none large enough look to free lists 
+     * that is large enough. If there is none large enough look to free lists
      * with larger block sizes.
-     * 
+     *
      * I am sure there is a better algorithm, but I do not know what it is. */
     nvm_blk ^nvb = fl=>head;
     size_t space;
@@ -3113,7 +3154,7 @@ static nvm_blk ^nvm_alloc_blk@(nvm_heap ^heap, size_t request, uint32_t align)
         }
     }
 
-    /* Create undo for the nvm_blk we are going to modify. This allows 
+    /* Create undo for the nvm_blk we are going to modify. This allows
      * non-transactional stores for updating the nvm_blk. */
     nvm_blk_undo(nvb);
 
@@ -3180,9 +3221,9 @@ static nvm_blk *nvm_alloc_blk(nvm_heap *heap, size_t request, uint32_t align)
         }
 
     /* Pick a block to allocate from. For now this just takes the first block
-     * that is large enough. If there is none large enough look to free lists 
+     * that is large enough. If there is none large enough look to free lists
      * with larger block sizes.
-     * 
+     *
      * I am sure there is a better algorithm, but I do not know what it is. */
     nvm_blk *nvb = nvm_blk_get(&fl->head);
     size_t space;
@@ -3233,7 +3274,7 @@ static nvm_blk *nvm_alloc_blk(nvm_heap *heap, size_t request, uint32_t align)
         }
     }
 
-    /* Create undo for the nvm_blk we are going to modify. This allows 
+    /* Create undo for the nvm_blk we are going to modify. This allows
      * non-transactional stores for updating the nvm_blk. */
     nvm_blk_undo(nvb);
 
@@ -3281,15 +3322,15 @@ static nvm_blk *nvm_alloc_blk(nvm_heap *heap, size_t request, uint32_t align)
 }
 #endif //NVM_EXT
 /**
- * Return a block of memory to the free list. If it has neighboring 
+ * Return a block of memory to the free list. If it has neighboring
  * nvm_blk blocks that are free, they will be merged into a single
  * free block.
- * 
- * On return the transaction will contain undo to rollback the 
+ *
+ * On return the transaction will contain undo to rollback the
  * deallocation. The caller is expected to have stored undo for
  * the entire nvm_blk, and to have removed the nvm_blk from the heap
  * allocated list. Thus it is not on any freelist.
- * 
+ *
  * @param nvb The nvm_blk that is now free.
  */
 #ifdef NVM_EXT
@@ -3321,12 +3362,12 @@ static void nvm_free_blk@(nvm_heap ^heap, nvm_blk ^nvb)
         nvb_next = nextnext;
     }
 
-    /* See if there is a block preceeding this one and it is free. If so 
+    /* See if there is a block preceeding this one and it is free. If so
      * merge them. */
     nvm_blk ^nvb_prev = nvb=>neighbors.back;
     if (nvb_prev && nvb_prev=>allocated == 0)
     {
-        /* merge preceeding block with the block being released. First 
+        /* merge preceeding block with the block being released. First
          * create undo for the block. */
         nvm_blk_undo(nvb_prev);
 
@@ -3384,13 +3425,13 @@ static void nvm_free_blk(nvm_heap *heap, nvm_blk *nvb)
         nvb_next = nextnext;
     }
 
-    /* See if there is a block preceeding this one and it is free. If so 
+    /* See if there is a block preceeding this one and it is free. If so
      * merge them. */
     nvm_blk *nvb_prev = nvm_blk_get(&nvb->neighbors.back);
     nvm_verify(nvb_prev, shapeof(nvm_blk));
     if (nvb_prev != NULL && nvb_prev->allocated == 0 )
     {
-        /* merge preceeding block with the block being released. First 
+        /* merge preceeding block with the block being released. First
          * create undo for the block. */
         nvm_blk_undo(nvb_prev);
 

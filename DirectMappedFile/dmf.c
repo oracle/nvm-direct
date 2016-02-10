@@ -417,10 +417,10 @@ struct dmf_file
 
 /*
  * The pointer and block extents are laid out to accommodate the maximum file
- * size. They are rounded up to this size and alignment to allow for large
- * pages to be used by the OS.
+ * size. They are rounded up to this size and alignment to match the NVM
+ * Direct alignment requirements. The first open or create will set the size.
  */
-#define DMF_PAGE_SIZE (4*1024) // extents are a multiple of this
+size_t dmf_page_size = 0;
 
 void dmf_usid_init();
 /**
@@ -929,6 +929,10 @@ dmf_file *dmf_create(
         ub2 writes,       // max simultaneous writes
         mode_t mode)      // permissions
 {
+    /* Get the NVM page size if not set yet */
+    if (dmf_page_size == 0)
+        dmf_page_size = nvm_page_size();
+
     /*
      * The following int is used to hold the errno value that caused an error
      * while allocations done here are freed.
@@ -951,57 +955,42 @@ dmf_file *dmf_create(
 
     /*
      * Decide how much address space is needed for the base extent.
-     * It needs to hold the NVM Direct metadata, a pointer array for the free
-     * blocks, and a mutex array for write exclusion. The mutex array is the
-     * square of the max concurrent writes to ensure there are few false
-     * collisions.
-     */
-
-    /*
-     * NVM Direct metadata is a bit over a megabyte presuming 63 transaction
-     * slots are sufficient. We add 128K to cover heap metadata.
-     */
-    size_t metadata = 1024*(1024+128);
-
-    /*
-     * The free block pointers are one pointer per concurrent write
-     */
-    size_t freeptrs = writes * sizeof(dmf_block^);
-
-    /*
-     * Calculate the number of write mutexes to hash into.
-     */
-    ub4 mutexes = writes*writes;
-
-    /*
-     * Add these up to be the physical space for the base extent.
+     * It needs to hold the NVM Direct metadata, the root struct, and a
+     * pointer array for the free blocks.
      * The size has to be rounded up to a  dmf page boundary.
      * Choose the virtual address space to be twice the physical space.
      * This allows the base extent to double in size someday.
+     *
+     * Note that there is no spare space for any more allocations from the
+     * base heap. If we want to support changing the size of the free array
+     * we will have to resize the base heap.
      */
-    size_t basesz = metadata + freeptrs + DMF_PAGE_SIZE - 1;
-    basesz -= basesz % DMF_PAGE_SIZE;
+    size_t basesz = nvm_overhead(2);
+    basesz += nvm_alloc_size(shapeof(dmf_root), 1);
+    basesz += nvm_alloc_size(shapeof(dmf_free), writes);
+    basesz += dmf_page_size -1 ;
+    basesz -= basesz % dmf_page_size;
     size_t vbasesz = 2 * basesz;
 
     /*
      * Calculate the physical and virtual size of the pointer extent.
      * We leave virtual address space to hold maxsz pointers.
      */
-    size_t ptrsz = filesz * sizeof(dmf_block^) + DMF_PAGE_SIZE - 1;
-    ptrsz -= ptrsz % DMF_PAGE_SIZE;
-    size_t vptrsz = maxsz * sizeof(dmf_block^) + DMF_PAGE_SIZE - 1;
-    vptrsz -= vptrsz % DMF_PAGE_SIZE;
+    size_t ptrsz = filesz * sizeof(dmf_block^) + dmf_page_size - 1;
+    ptrsz -= ptrsz % dmf_page_size;
+    size_t vptrsz = maxsz * sizeof(dmf_block^) + dmf_page_size - 1;
+    vptrsz -= vptrsz % dmf_page_size;
 
     /*
      * Calculate the physical and virtual size of the block extent.
      * We leave virtual address space to hold maxsz blocks.
      */
     size_t bexsz = (filesz + writes) * (sizeof(dmf_block) + blksz) +
-            DMF_PAGE_SIZE - 1;
-    bexsz -= bexsz % DMF_PAGE_SIZE;
+            dmf_page_size - 1;
+    bexsz -= bexsz % dmf_page_size;
     size_t vbexsz = (maxsz + writes) * (sizeof(dmf_block) + blksz) +
-            DMF_PAGE_SIZE - 1;
-    vbexsz -= vbexsz % DMF_PAGE_SIZE;
+            dmf_page_size - 1;
+    vbexsz -= vbexsz % dmf_page_size;
 
     /*
      * Allocate a dmf_file for managing the Direct Mapped File.
@@ -1034,6 +1023,11 @@ dmf_file *dmf_create(
         saverr = errno;
         goto err2;
     }
+
+    /*
+     * Calculate the number of write mutexes to hash into.
+     */
+    ub4 mutexes = writes*writes;
 
     /*
      * Allocate the array of write mutexes for preventing simultaneous
@@ -1264,6 +1258,10 @@ dmf_file *dmf_create(
  */
 dmf_file *dmf_open(const char *name, void *addr)
 {
+    /* Get the NVM page size if not set yet */
+    if (dmf_page_size == 0)
+        dmf_page_size = nvm_page_size();
+
     /*
      * The following int is used to hold the errno value that caused an error
      * while allocations done here are freed.
@@ -2111,12 +2109,12 @@ int dmf_grow(dmf_file *dmf, ub4 filesz)
 
     /* calculate the new size for the block extent */
     size_t extsz = (filesz + dmf->freecnt) * (sizeof(dmf_block) + dmf->blksz)
-            + DMF_PAGE_SIZE - 1;
-    extsz -= extsz % DMF_PAGE_SIZE;
+            + dmf_page_size - 1;
+    extsz -= extsz % dmf_page_size;
 
     /* calculate the new size for the pointer extent */
-    size_t ptrsz = filesz * sizeof(dmf_block^) + DMF_PAGE_SIZE - 1;
-    ptrsz -= ptrsz % DMF_PAGE_SIZE;
+    size_t ptrsz = filesz * sizeof(dmf_block^) + dmf_page_size - 1;
+    ptrsz -= ptrsz % dmf_page_size;
 
     /* Verify the new size is not greater than the available virtual space. */
     size_t newsize = ((ub1*)dmf->blocks - (ub1*)rstat.base) + extsz;
@@ -2797,12 +2795,12 @@ int dmf_shrink(dmf_file *dmf, ub4 filesz)
 
     /* calculate the new size for the block extent */
     size_t extsz = (filesz + freecnt) * (sizeof(dmf_block) + dmf->blksz)
-            + DMF_PAGE_SIZE - 1;
-    extsz -= extsz % DMF_PAGE_SIZE;
+            + dmf_page_size - 1;
+    extsz -= extsz % dmf_page_size;
 
     /* calculate the new size for the pointer extent */
-    size_t ptrsz = filesz * sizeof(dmf_block^) + DMF_PAGE_SIZE - 1;
-    ptrsz -= ptrsz % DMF_PAGE_SIZE;
+    size_t ptrsz = filesz * sizeof(dmf_block^) + dmf_page_size - 1;
+    ptrsz -= ptrsz % dmf_page_size;
 
     /* Create a transaction to resize the extents and sizes atomically.
      * This makes shrink atomic. */

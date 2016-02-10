@@ -128,10 +128,11 @@ static void nvm_region_sizeof_check()
         nvms_assert_fail("nvm_region size wrong");
 }
 #endif //NVM_EXT
+
 /**
- * Check a virtual address or length for being properly aligned
+ * Return the alignment for addresses and lengths
  */
-static int nvm_align_check(uint64_t val)
+static uint64_t nvm_get_align()
 {
     static uint64_t align = 0;
 
@@ -142,12 +143,23 @@ static int nvm_align_check(uint64_t val)
         align = ad->params.extent_align;
     }
 
+    return align;
+}
+
+/**
+ * Check a virtual address or length for being properly aligned
+ */
+static int nvm_align_check(uint64_t val)
+{
+    uint64_t align = nvm_get_align();
+
     /* return if good alignment */
     if (val % align == 0)
         return 1;
     else
         return 0;
 }
+
 #ifdef NVM_EXT
 inline static int nvm_addr_align(void ^adr)
 {
@@ -160,44 +172,125 @@ inline static int nvm_addr_align(void *adr)
 }
 #endif //NVM_EXT
 
+/**
+ * This returns the page size in bytes that the NVM Direct library expects.
+ * All virtual addresses and extent sizes must be a multiple of this value.
+ * This is controlled by a configuration parameter, so it may be different
+ * than the normal OS page size.
+ */
+size_t nvm_page_size(void)
+{
+    return (size_t)nvm_get_align();
+}
+
+/**
+ * This returns the minimum NVM overhead consumed by NVM direct for its
+ * metadata. This includes the base heap overhead, one transaction table,
+ * and the configured number of upgrade mutexes. The extents argument
+ * adds the metadata overhead for supporting that many additional extents
+ * beyond the base extent. The value includes space for a 64 byte root
+ * struct defined by the application and allocated from the base heap.
+ * However the root object does not have to be in the base heap, and is
+ * often larger than 64 bytes.
+ *
+ * The size is rounded up to the next page boundary so that it is a valid
+ * physical size for creating an NVM region. The physical size passed to
+ * nvm_create_region must be at least this large or creation may fail.
+ *
+ * Note that all the structs
+ * @param[in] extents
+ * The maximum number of additional extents that this much metadata would
+ * support. This can be zero if the application will not create additional
+ * extents beyond the base extent.
+ *
+ * @return
+ * The return size is the overhead in bytes that must be included in the
+ * physical space parameter used to create a region. Generally the region
+ * should be created with more physical space to support the application
+ * data allocated from the base heap.
+ */
+size_t nvm_overhead(uint32_t extents)
+{
+    /* The struct at the beginning of a region */
+    size_t oh = nvm_alloc_size(shapeof(nvm_region), 1);
+
+    /* The heap control struct for the base heap */
+    oh += nvm_alloc_size(shapeof(nvm_heap), 1);
+
+    /* The nvm_blk for the free space */
+    oh += nvm_alloc_size(shapeof(nvm_blk), 1);
+
+    /* The nvm_blk at the end of the heap */
+    oh += nvm_alloc_size(shapeof(nvm_blk), 1);
+
+    /* The initial transaction table containing undo and transaction slots */
+    oh += nvm_alloc_size(shapeof(nvm_trans_table), 1);
+
+    /* The mutex array for upgrades */
+    nvm_app_data *ad = nvm_get_app_data();
+    uint32_t mutexes = ad->params.upgrade_mutexes;
+    oh += nvm_alloc_size(shapeof(nvm_mutex_array), mutexes);
+
+    /* Allow for a minimal root struct the same size as an nvm_blk. Most likely
+     * the application will actually allocate a larger struct. */
+    oh += nvm_alloc_size(shapeof(nvm_blk), 1);
+
+    /* If no extents then we are done. */
+    if (extents == 0)
+        return oh;
+
+    /* The extent metadata. This is a bit pessimistic because it assumes that
+     * the space released when doubling the size of the extent map cannot
+     * be reused. That is the case if there are no other allocations since
+     * the sum of all previous maps will be slightly less than twice the
+     * current extent array. Each time around the loop simulates doubling
+     * the extent map. */
+    uint32_t exts = NVM_INITIAL_EXTENTS;
+    oh += nvm_alloc_size(shapeof(nvm_extent), exts);
+    for (exts = NVM_INITIAL_EXTENTS; extents > exts; exts += exts)
+        oh += nvm_alloc_size(shapeof(nvm_extent), exts);
+
+    return oh;
+}
+
 /*--------------------------- nvm_create_region -----------------------------*/
 /**
- * This function creates a region file in an NVM file system, maps it into 
- * the creating process's address space, and initializes the transaction 
- * and heap mechanisms for application use. A region descriptor is 
- * returned. If the region argument is zero then the library will choose 
- * an unused descriptor. If a non-zero region descriptor is passed in then 
- * it will be used. The application must ensure it does not attempt to use 
- * the same region descriptor twice. The caller will need to call 
+ * This function creates a region file in an NVM file system, maps it into
+ * the creating process's address space, and initializes the transaction
+ * and heap mechanisms for application use. A region descriptor is
+ * returned. If the region argument is zero then the library will choose
+ * an unused descriptor. If a non-zero region descriptor is passed in then
+ * it will be used. The application must ensure it does not attempt to use
+ * the same region descriptor twice. The caller will need to call
  * nvm_set_root_object() to complete initialization making the region valid
  * for reattaching.
- * 
- * The region descriptor is needed for beginning transactions in the region 
+ *
+ * The region descriptor is needed for beginning transactions in the region
  * and for some of the other library functions.
- * 
- * The virtual address for attach must be non-zero, page aligned, and not in 
+ *
+ * The virtual address for attach must be non-zero, page aligned, and not in
  * use. It is an error if this address cannot be used in mmap.
- * 
- * All application calls to nvm_usid_register must be done before this is 
+ *
+ * All application calls to nvm_usid_register must be done before this is
  * called.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] desc
  * The descriptor to use for this region, or zero to let the library choose an
  * available descriptor.
- * 
+ *
  * @param[in] region
  * If this is zero then an unused region descriptor will be chosen.
  * Otherwise this region descriptor will be used. It must not be in use
  * already by this application.
- * 
+ *
  * @param[in] pathname
  * This is the name of the region file to create. It must be a name in
  * an NVM file system.
- * 
+ *
  * @param[in] attach
- * This is the virtual address where the new region file will be mapped 
+ * This is the virtual address where the new region file will be mapped
  * into the process. A value of zero can be passed to let the OS choose
  * an address.
  *
@@ -205,26 +298,26 @@ inline static int nvm_addr_align(void *adr)
  * This is the amount of virtual address space that the region will consume
  * when it is mapped into a process. This needs to be large enough to allow
  * addition of physical NVM while running.
- * 
+ *
  * @param[in] pspace
  * This is the initial amount of physical NVM to allocate to the base
  * extent. This is used to create the rootheap and allocate metadata used
  * by the NVM library.
- * 
+ *
  * @param[in] mode
  * This is the same as the mode parameter to the Posix creat system call.
  * See the man page open(2) for the bit definitions.
- * 
- * @return 
+ *
+ * @return
  * The return value is the region descriptor for the new region. It is used
  * as an opaque handle to the region for several NVM library calls. If zero
  * is returned then the call failed and errno contains an error number.
- * 
+ *
  * @par Errors:
- * 
+ *
  * - EACCES\n
- * The requested access to the region file is not allowed, or search 
- * permission is denied for one of the directories in the path  prefix of  
+ * The requested access to the region file is not allowed, or search
+ * permission is denied for one of the directories in the path  prefix of
  * pathname,  or write access to the parent directory is not  allowed.
  * - EBUSY\n
  * requested region descriptor is already in use.
@@ -243,12 +336,12 @@ inline static int nvm_addr_align(void *adr)
  * -ENFILE \n
  * The  system  limit  on  the  total number of open files has been reached.
  * - ENOMEM \n
- * Insufficient kernel memory was available, or the process's maximum 
+ * Insufficient kernel memory was available, or the process's maximum
  * number of mappings would have been exceeded.
  * - ENOSPC \n
  * The NVM file system has no room for the new region file.
  * - ENOTDIR\n
- * A  component  used as a directory in pathname is not, in fact, 
+ * A  component  used as a directory in pathname is not, in fact,
  * a directory
  * - EROFS  \n
  * pathname refers to a file on a read-only filesystem.
@@ -260,7 +353,7 @@ inline static int nvm_addr_align(void *adr)
  * regions configured.
  */
 #ifdef NVM_EXT
-nvm_desc nvm_create_region(//#
+nvm_desc nvm_create_region(
         nvm_desc desc,
         const char *pathname,
         const char *regionname,
@@ -285,9 +378,7 @@ nvm_desc nvm_create_region(//#
     if (handle == 0)
         return 0;
 
-    //TODO+ verify it is really an NVM file system
-
-    /* Lock the new region file. Note that no other process can map the file 
+    /* Lock the new region file. Note that no other process can map the file
      * yet because it has a zero nvm_region usid. */
     if (!nvms_lock_region(handle, 1))
     {
@@ -330,7 +421,7 @@ nvm_desc nvm_create_region(//#
         }
     }
 
-    /* Map the file into our address space so we can initialize it. This 
+    /* Map the file into our address space so we can initialize it. This
      * allocates a descriptor if necessary. If successful the application
      * data mutex will be locked on return. */
     desc = nvm_map_region(pathname, handle, attach, desc, 1);
@@ -347,10 +438,10 @@ nvm_desc nvm_create_region(//#
     nvm_region ^region = (nvm_region^)nvms_region_addr(handle);
 
     /* set the persistent region name. */
-    strncpy((char*)region=>header.name, regionname, 
+    strncpy((char*)region=>header.name, regionname,
             sizeof(region=>header.name) - 1);
     nvm_flush(region=>header.name, sizeof(region=>header.name));
-    
+
     /* This NVM segment has just been created so its attach count is set to
      * one. Attach count of 0 is used to ensure no match with attach_count. */
     region=>attach_cnt ~= 1;
@@ -358,7 +449,7 @@ nvm_desc nvm_create_region(//#
     /* Initialize the region mutex */
     nvm_mutex_init1((nvm_amutex^)%region=>reg_mutex, (uint8_t)210);
 
-    /* Create the base heap in the base extent. It is initialized for 
+    /* Create the base heap in the base extent. It is initialized for
      * non-transactional allocation. Note that any errors are assert failures,
      * so there is no need to check for errors. */
     nvm_heap ^rh;
@@ -389,7 +480,7 @@ nvm_desc nvm_create_region(//#
             nvms_assert_fail("No space in root heap for upgrade mutexes");
         region=>upgrade_mutexes @= ma;
     }
-    
+
     /* We can now release the app data lock acquired by nvm_map_region. */
     nvms_unlock_mutex(ad->mutex);
 
@@ -426,9 +517,7 @@ nvm_desc nvm_create_region(
     if (handle == 0)
         return 0;
 
-    //TODO+ verify it is really an NVM file system
-
-    /* Lock the new region file. Note that no other process can map the file 
+    /* Lock the new region file. Note that no other process can map the file
      * yet because it has a zero nvm_region usid. */
     if (!nvms_lock_region(handle, 1))
     {
@@ -471,7 +560,7 @@ nvm_desc nvm_create_region(
         }
     }
 
-    /* Map the file into our address space so we can initialize it. This 
+    /* Map the file into our address space so we can initialize it. This
      * allocates a descriptor if necessary. If successful the application
      * data mutex will be locked on return. */
     desc = nvm_map_region(pathname, handle, attach, desc, 1);
@@ -485,30 +574,30 @@ nvm_desc nvm_create_region(
 
     /* Initialize the nvm_region header. Note that there is no undo for this
      * since transactions are not supported yet. */
-    nvm_region *region;    
+    nvm_region *region;
     region = nvms_region_addr(handle);
 
     /* set the persistent region name. We will flush later. */
-    strncpy(region->header.name, regionname,    
-            sizeof(region->header.name) - 1);    
+    strncpy(region->header.name, regionname,
+            sizeof(region->header.name) - 1);
 
     /* This NVM segment has just been created so its attach count is set to
      * one. Attach count of 0 is used to ensure no match with attach_count. */
-    region->attach_cnt = 1;    
+    region->attach_cnt = 1;
 
     /* Initialize the region mutex */
     nvm_mutex_init1((nvm_amutex*)&region->reg_mutex, 210);
 
-    /* Create the base heap in the base extent. It is initialized for 
+    /* Create the base heap in the base extent. It is initialized for
      * non-transactional allocation. Note that any errors are assert failures,
      * so there is no need to check for errors. */
-    nvm_heap *rh;    
+    nvm_heap *rh;
     rh = nvm_create_rootheap(regionname, region, pspace);
     nvm_heap_set(&region->rootHeap, rh);
 
     /* no extent table in the nvm_region yet. */
-    region->extent_count = 0;    
-    nvm_extent_set(&(region->extents), 0);    
+    region->extent_count = 0;
+    nvm_extent_set(&(region->extents), 0);
 
     /* Create the initial transaction table in NVM, and save it. It will
      * be created with all transactions and undo free. */
@@ -533,7 +622,7 @@ nvm_desc nvm_create_region(
         nvms_assert_fail("No space in root heap for upgrade mutexes");
     nvm_mutex_array_txset(&region->upgrade_mutexes, ma);
     nvm_txend();
-    
+
     /* We can now release the app data lock acquired by nvm_map_region. */
     nvms_unlock_mutex(ad->mutex);
 
@@ -546,41 +635,41 @@ nvm_desc nvm_create_region(
 
 /*-------------------------- nvm_set_root_object ----------------------------*/
 /**
- * All the application data in an NVM region must be reachable through NVM 
- * pointers starting from the root object. If there are any application NVM 
- * variables that need to be static or global they will be fields in the 
+ * All the application data in an NVM region must be reachable through NVM
+ * pointers starting from the root object. If there are any application NVM
+ * variables that need to be static or global they will be fields in the
  * root object.
- * 
- * After creating a region there is no root object so the region is still 
- * marked as invalid. To make the new region valid this function must be 
- * called to save the root object. The root object is typically allocated 
- * from the root heap immediately after the region is successfully created. 
- * The allocation and initialization of the new root object must be 
- * committed before this is called. There may not be any active 
+ *
+ * After creating a region there is no root object so the region is still
+ * marked as invalid. To make the new region valid this function must be
+ * called to save the root object. The root object is typically allocated
+ * from the root heap immediately after the region is successfully created.
+ * The allocation and initialization of the new root object must be
+ * committed before this is called. There may not be any active
  * transactions in the region when this is called.
- * 
+ *
  * The root object must have a USID defined for it so that attach can
  * validate the region can be understood by the attaching region.
  *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] desc
  * This must be a region descriptor returned by nvm_create_region, and no
  * root object has been set
- * 
+ *
  * @param[in] rootobj
  * This must point to an NVM allocation returned by nvm_alloc, and the
  * allocating transaction has committed.
- * 
- * @return 
+ *
+ * @return
  * 0 is returned on error and 1 is returned on success.
- * 
+ *
  * @par Errors:
  */
 #ifdef NVM_EXT
-int nvm_set_root_object( 
+int nvm_set_root_object(
         nvm_desc desc,
-        void ^rootobj 
+        void ^rootobj
         )
 {
     /* get application data */
@@ -640,7 +729,7 @@ int nvm_set_root_object(
     }
 
     /* Persistently store the new root object making the region valid
-     * for attaching. This is not done in a transaction because we do not 
+     * for attaching. This is not done in a transaction because we do not
      * want recovery to make a valid region become invalid by rolling back
      * this store. */
     region=>header.rootObject ~= rootobj;
@@ -651,9 +740,9 @@ int nvm_set_root_object(
     return 1;
 }
 #else
-int nvm_set_root_object(   
+int nvm_set_root_object(
         nvm_desc desc,
-        void *rootobj    
+        void *rootobj
         )
 {
     /* get application data */
@@ -714,7 +803,7 @@ int nvm_set_root_object(
     nvm_persist();
 
     /* Persistently store the new root object, then make the region valid
-     * for attaching. This is not done in a transaction because we do not 
+     * for attaching. This is not done in a transaction because we do not
      * want recovery to make a valid region become invalid by rolling back
      * this store. */
     void_set(&region->header.rootObject, rootobj);
@@ -729,27 +818,27 @@ int nvm_set_root_object(
 
 /*-------------------------- nvm_new_root_object ----------------------------*/
 /**
- * There may be circumstances where a new object needs to become the root 
- * object for the region. This must be done in a transaction to ensure the 
- * region remains valid. The transaction must create the new root object 
- * and pass it to nvm_new_root_object() before committing. The transaction 
- * will usually delete the old root object either before or after 
- * nvm_new_root_object() is called, but in the same transaction. The return 
+ * There may be circumstances where a new object needs to become the root
+ * object for the region. This must be done in a transaction to ensure the
+ * region remains valid. The transaction must create the new root object
+ * and pass it to nvm_new_root_object() before committing. The transaction
+ * will usually delete the old root object either before or after
+ * nvm_new_root_object() is called, but in the same transaction. The return
  * value is the old root object.
- * 
+ *
  * This operates on the region of the current transaction
- * 
+ *
  * The root object must have a USID defined for it so that attach can
  * validate the region can be understood by the attaching region.
  *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] rootobj
  * This is an NVM pointer to the new root object.
- * 
- * @return 
+ *
+ * @return
  * The old root object pointer is returned if success. NULL returned on error.
- * 
+ *
  * @par Errors
  */
 #ifdef NVM_EXT
@@ -849,18 +938,18 @@ void *nvm_new_root_object(
 
 /*-------------------------- nvm_destroy_region ----------------------------*/
 /**
- * This will delete a region returning its NVM to the file system. The 
- * region must not be attached to any process. The region may also be 
- * deleted via the file system. 
- * 
+ * This will delete a region returning its NVM to the file system. The
+ * region must not be attached to any process. The region may also be
+ * deleted via the file system.
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
- * @param[in] name 
+ *
+ * @param[in] name
  * name of the region file to destroy
- * 
+ *
  * @return
  * 1 if successful, 0 on error
- * 
+ *
  * @par Errors:
  */
 int nvm_destroy_region(
@@ -873,50 +962,50 @@ int nvm_destroy_region(
 
 /*--------------------------- nvm_attach_region -----------------------------*/
 /**
- * Attach a Non-Volatile Memory region to this application and return a 
- * region descriptor. If the region argument is zero then the library will 
- * choose an unused descriptor. If a non-zero region descriptor is passed 
+ * Attach a Non-Volatile Memory region to this application and return a
+ * region descriptor. If the region argument is zero then the library will
+ * choose an unused descriptor. If a non-zero region descriptor is passed
  * in then it will be used. The application must ensure it does not attempt
- * to use the same region descriptor twice.  If exclusive is true then the 
- * region file will be locked exclusive, otherwise it is locked shared. 
- * 
+ * to use the same region descriptor twice.  If exclusive is true then the
+ * region file will be locked exclusive, otherwise it is locked shared.
+ *
  * Only one process at a time may attach a region, and only one attach can
  * be done to the same region. The returned region descriptor is valid for
  * all threads in the application process.
- * 
+ *
  * If the last detach was not clean, recovery will be run to roll back any
- * active transactions and complete any committing transactions. This must 
+ * active transactions and complete any committing transactions. This must
  * not be called in a transaction.
- * 
- * All application calls to nvm_usid_register must be done before this is 
+ *
+ * All application calls to nvm_usid_register must be done before this is
  * called.
- * 
- * This cannot be called in a transaction since it would have to be for 
+ *
+ * This cannot be called in a transaction since it would have to be for
  * another region.
- * 
- * The region descriptor is used for beginning transactions in the region 
+ *
+ * The region descriptor is used for beginning transactions in the region
  * and for a parameter to other library functions that operate on a region.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
  *
  * @param[in] region
  * If this is zero then an unused region descriptor will be chosen.
  * Otherwise this region descriptor will be used. It must not be in use
  * already by this application.
- * 
+ *
  * @param[in] pathname
  * This is the name of the region file to attach
- * 
+ *
  * @param[in] attach
- * This is the virtual address where the region file will be mapped 
+ * This is the virtual address where the region file will be mapped
  * into the process.
- * 
- * @return 
+ *
+ * @return
  * The return value is a descriptor for the region. It is used as an
  * opaque handle to the region for several NVM library calls.
- * 
+ *
  * @par Errors:
- * 
+ *
  */
 #ifdef NVM_EXT
 nvm_desc nvm_attach_region(
@@ -936,8 +1025,6 @@ nvm_desc nvm_attach_region(
     nvms_file *handle = nvms_open_region(pathname);
     if (handle == 0)
         return 0;
-
-    //TODO+ verify it is really an NVM file system
 
     /* Lock the region file exclusive to ensure it is not in use by some
      * other application.  */
@@ -992,8 +1079,6 @@ nvm_desc nvm_attach_region(
     nvms_file *handle = nvms_open_region(pathname);
     if (handle == 0)
         return 0;
-
-    //TODO+ verify it is really an NVM file system
 
     /* Lock the region file exclusive to ensure it is not in use by some
      * other application.  */
@@ -1134,19 +1219,19 @@ nvm_region *nvm_region_find(const void *ptr)
  * This returns the status of a region that is mapped into the current
  * process. Note that the returned status might not be current if some
  * other thread is changing the region.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] desc
  * This is the NVM region descriptor returned by nvm_attach_region or
  * nvm_create_region.
- * 
+ *
  * @param[out] stat
  * This points to the buffer where the results are stored
  *
- * @return 
+ * @return
  * 0 is returned on error and 1 is returned on success.
- * 
+ *
  * @par Errors
  */
 #ifdef NVM_EXT
@@ -1290,7 +1375,7 @@ int nvm_query_region(
  * there are transactions active or committing in the application.
  *
  * It is not really necessary to detach a region. Process exit will detach.
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
  *
  * @param[in] desc
@@ -1493,13 +1578,13 @@ void nvm_freex_callback(nvm_remx_ctx *ctx)
  * This on abort/commit callback removes/shrinks an extent from the application.
  * It is used to back out an extent add/grow if the parent transaction rolls
  * back, and it is used to shrink/delete an extent at commit.
- * 
+ *
  * @param ctx Context describing the NVM to remove.
  */
 #ifdef NVM_EXT
 USID("2732 fd0f 0a13 11e2 f304 ce0c 9fd5 33f8")
 void nvm_remx_callback@(nvm_remx_ctx ^ctx)
-{   
+{
     uint8_t ^addr = ctx=>addr;
     if (ctx=>offset == 0 || ctx=>bytes == 0 || addr == 0)
         return; // callback not activated, or nothing to do.
@@ -1516,7 +1601,7 @@ void nvm_remx_callback@(nvm_remx_ctx ^ctx)
     if ((void*)rg != (void*)(addr - ctx=>offset))
         nvms_corruption("Inconsistent offset/addr in undo", rg, ctx);
 
-    /* Modify the metadata to show the extent is deleted in a nested 
+    /* Modify the metadata to show the extent is deleted in a nested
      * transaction. This lets us commit the change and unmap the NVM before
      * actually deleting it from the file. */
     @{ //begin nested TX
@@ -1552,7 +1637,7 @@ void nvm_remx_callback@(nvm_remx_ctx ^ctx)
                     if (addr + ctx=>bytes != base + ext=>size)
                         nvms_corruption("Shrink of extent not at end", rg, ctx);
 
-                    /* If deleting the extent, remove the entry from the 
+                    /* If deleting the extent, remove the entry from the
                      * extent array. Otherwise just shorten the extent. */
                     if (addr == base)
                     {
@@ -1573,13 +1658,13 @@ void nvm_remx_callback@(nvm_remx_ctx ^ctx)
 
             /* Note that it is possible for this loop to exit without finding any
              * extent metadata to update. This happens if the nested transaction
-             * to update the metadata commits, but thread death results in this 
+             * to update the metadata commits, but thread death results in this
              * callback being called again. */
         }
 
         /* Commit the metadata change so we can unmap the NVM globally. */
     }
-    
+
     /* Unmap the NVM before deleting it */
     nvms_unmap_range(fh, ctx=>offset, ctx=>bytes);
 
@@ -1606,7 +1691,7 @@ void nvm_remx_callback(nvm_remx_ctx *ctx)
     if ((void*)rg != (void*)(addr - ctx->offset))
         nvms_corruption("Inconsistent offset/addr in undo", rg, ctx);
 
-    /* Modify the metadata to show the extent is deleted in a nested 
+    /* Modify the metadata to show the extent is deleted in a nested
      * transaction. This lets us commit the change and unmap the NVM before
      * actually deleting it from the file. */
     nvm_txbegin(0);
@@ -1645,7 +1730,7 @@ void nvm_remx_callback(nvm_remx_ctx *ctx)
                 if (addr + ctx->bytes != base + ext->size)
                     nvms_corruption("Shrink of extent not at end", rg, ctx);
 
-                /* If deleting the extent, remove the entry from the 
+                /* If deleting the extent, remove the entry from the
                  * extent array. Otherwise just shorten the extent. */
                 if (addr == base)
                 {
@@ -1672,7 +1757,7 @@ void nvm_remx_callback(nvm_remx_ctx *ctx)
 
         /* Note that it is possible for this loop to exit without finding any
          * extent metadata to update. This happens if the nested transaction
-         * to update the metadata commits, but thread death results in this 
+         * to update the metadata commits, but thread death results in this
          * callback being called again. */
     }
 
@@ -1690,37 +1775,37 @@ void nvm_remx_callback(nvm_remx_ctx *ctx)
 
 /*---------------------------- nvm_add_extent ------------------------------*/
 /**
- * This function adds a new application managed extent of NVM to a region 
- * that is currently attached. This must be called within a transaction 
- * that saves a pointer to the extent in some application persistent 
+ * This function adds a new application managed extent of NVM to a region
+ * that is currently attached. This must be called within a transaction
+ * that saves a pointer to the extent in some application persistent
  * struct. If the transaction rolls back the extent add will also rollback.
  * The return value is the actual extent address. This will be the
  * same address as the extent address passed in.
- * 
- * The address range for the new extent must not overlap any existing 
- * extent. It must be within the NVM virtual address space reserved for the 
- * region. It must be page aligned and the size must be a multiple of a 
+ *
+ * The address range for the new extent must not overlap any existing
+ * extent. It must be within the NVM virtual address space reserved for the
+ * region. It must be page aligned and the size must be a multiple of a
  * page size.
- * 
+ *
  * This operates on the region of the current transaction
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] extent
  * This is the desired virtual address for the new extent.
- * 
+ *
  * @param[in] psize
  * This is the amount of physical NVM to allocate for the extent in bytes.
- * 
- * @return 
+ *
+ * @return
  * The virtual address of the extent is returned. Zero is returned if there
  * is an error.
- * 
+ *
  * @par Errors:
  */
 #ifdef NVM_EXT
-void ^nvm_add_extent@( 
-        void ^extent,   
+void ^nvm_add_extent@(
+        void ^extent,
         size_t psize
         )
 {
@@ -1767,10 +1852,10 @@ void ^nvm_add_extent@(
      * in a nested transaction commit, applying this operation is a no-op. */
     nvm_remx_ctx ^rctx = nvm_onabort(|nvm_remx_callback);
 
-    /* Begin a nested transaction to add the extent. This will commit the 
+    /* Begin a nested transaction to add the extent. This will commit the
      * extent to exist so we can map it in before we return. */
     @{
-        /* lock the region mutex to ensure only one region reconfiguration can 
+        /* lock the region mutex to ensure only one region reconfiguration can
          * happen at a time. */
         nvm_region ^rg = rd->region;
         nvm_xlock(%rg=>reg_mutex);
@@ -1855,7 +1940,7 @@ void ^nvm_add_extent@(
                             nvms_corruption("Bad pointer to NVM extent",
                                     ox, addr);
                         if (!nvm_align_check(ox=>size))
-                            nvms_corruption("Bad extent size", 
+                            nvms_corruption("Bad extent size",
                                     ox, (void^)ox=>size);
 
                         /* Initialize the new record. This needs no undo because
@@ -1937,8 +2022,8 @@ void ^nvm_add_extent@(
     return extent;
 }
 #else
-void *nvm_add_extent(   
-        void *extent,    
+void *nvm_add_extent(
+        void *extent,
         size_t psize
         )
 {
@@ -1985,11 +2070,11 @@ void *nvm_add_extent(
      * in a nested transaction commit, applying this operation is a no-op. */
     nvm_remx_ctx *rctx = nvm_onabort(nvm_extern_nvm_remx_callback.usid);
 
-    /* Begin a nested transaction to add the extent. This will commit the 
+    /* Begin a nested transaction to add the extent. This will commit the
      * extent to exist so we can map it in before we return. */
     nvm_txbegin(0);
 
-    /* lock the region mutex to ensure only one region reconfiguration can 
+    /* lock the region mutex to ensure only one region reconfiguration can
      * happen at a time. */
     nvm_region *rg = rd->region;
     nvm_verify(rg, shapeof(nvm_region));
@@ -2035,7 +2120,7 @@ void *nvm_add_extent(
     if (rg->extent_count == rg->extents_size)
     {
         /* The current array is full or does not exist yet. If it is full then
-         * reallocate it at twice the current size. If this is the first 
+         * reallocate it at twice the current size. If this is the first
          * extent allocated in the region then allocate a new array. This is
          * done in a nested transaction since there is no harm in having more
          * unused entries. */
@@ -2186,22 +2271,22 @@ void *nvm_add_extent(
  * is corrupt.  The application is responsible for removing any pointers
  * to the extent as part of the transaction. The base extent cannot be
  * removed.
- * 
+ *
  * This operates on the region of the current transaction
- * 
- * If there are any errors then errno is set and the return value is zero.	
- * 
+ *
+ * If there are any errors then errno is set and the return value is zero.
+ *
  * @param[in] addr
  * This is a virtual address somewhere in the extent to delete.
- * 
- * @return 
+ *
+ * @return
  * 0 is returned on error and 1 is returned on success.
- * 
+ *
  * @par Errors:
  */
 #ifdef NVM_EXT
-int nvm_remove_extent@( 
-        void ^addr   
+int nvm_remove_extent@(
+        void ^addr
         )
 {
     /* It is an error to use this on a heap managed extent since it does not
@@ -2213,8 +2298,8 @@ int nvm_remove_extent@(
     }
     return nvm_remove_extent1(addr);
 }
-int nvm_remove_extent1@( 
-    void ^addr 
+int nvm_remove_extent1@(
+    void ^addr
     )
 {
     /* Get the region address from the transaction */
@@ -2274,8 +2359,8 @@ int nvm_remove_extent1@(
     return 1;
 }
 #else
-int nvm_remove_extent(   
-        void *addr    
+int nvm_remove_extent(
+        void *addr
         )
 {
     /* It is an error to use this on a heap managed extent since it does not
@@ -2287,8 +2372,8 @@ int nvm_remove_extent(
     }
     return nvm_remove_extent1(addr);
 }
-int nvm_remove_extent1(   
-        void *addr    
+int nvm_remove_extent1(
+        void *addr
         )
 {
     /* Get the region address from the transaction */
@@ -2335,7 +2420,7 @@ int nvm_remove_extent1(
         errno = EINVAL;
         return 0;
     }
-    
+
     /* All done reading extent table so drop the lock */
     nvm_rollback(addr);
 
@@ -2352,33 +2437,33 @@ int nvm_remove_extent1(
 }
 #endif //NVM_EXT
 /**
- * This function changes the size of an existing application managed 
+ * This function changes the size of an existing application managed
  * extent. This must be called within a transaction. If the transaction
  * rolls back the resize will also rollback.
- * 
- * The address range for the extent must not overlap any existing extent. 
- * It must be within the NVM virtual address space reserved for the region. 
+ *
+ * The address range for the extent must not overlap any existing extent.
+ * It must be within the NVM virtual address space reserved for the region.
  * The new size must be a multiple of a page size and not zero. This must not
  * be a heap managed extent.
- * 
+ *
  * This operates on the region of the current transaction
- * 
+ *
  * If there are any errors then errno is set and the return value is zero.
- * 
+ *
  * @param[in] extent
  * This is the virtual address of the extent returned by nvm_add_extent.
- * 
+ *
  * @param[in] psize
  * This is the new physical size of the extent in bytes. It may not be 0.
- * 
- * @return 
+ *
+ * @return
  * 0 is returned on error and 1 is returned on success.
- * 
+ *
  * @par Errors:
  */
 #ifdef NVM_EXT
-int nvm_resize_extent@( 
-        void ^extent,   
+int nvm_resize_extent@(
+        void ^extent,
         size_t psize
         )
 {
@@ -2391,8 +2476,8 @@ int nvm_resize_extent@(
     }
     return nvm_resize_extent1(extent, psize);
 }
-int nvm_resize_extent1@( 
-        void ^extent,   
+int nvm_resize_extent1@(
+        void ^extent,
         size_t psize
         )
 {
@@ -2421,7 +2506,7 @@ int nvm_resize_extent1@(
      * act like it is going to grow because that requires making changes here
      * in a nested transaction that has the region locked. If it turns out that
      * this is actually a shrink, the transaction can be cleaned up. We would
-     * have to start all over again if we acted like a shrink, but it was a 
+     * have to start all over again if we acted like a shrink, but it was a
      * grow. Note that growing is much more common than shrinking. */
 
     /* Create an on abort operation to restore the current size if growing.
@@ -2430,7 +2515,7 @@ int nvm_resize_extent1@(
      * arguments will be left as zero. */
     nvm_remx_ctx ^rctx = nvm_onabort(|nvm_remx_callback);
 
-    /* Begin a nested transaction to grow the extent. This will commit the 
+    /* Begin a nested transaction to grow the extent. This will commit the
      * extent to grow so we  map it in before we return. If this turns out to
      * be a shrink, this nested transaction will be aborted without modifying
      * anything. */
@@ -2440,7 +2525,7 @@ int nvm_resize_extent1@(
 
         /* Lock the region to prevent the extent table from being reallocated
          * while we are looking at it. We get an X lock because we will modify
-         * the extent in this transaction if it is growing. We only need an 
+         * the extent in this transaction if it is growing. We only need an
          *S lock if shrinking since the shrink is done in an on commit
          * operation, but we cannot tell that now. */
         nvm_xlock(%rg=>reg_mutex);
@@ -2488,11 +2573,11 @@ int nvm_resize_extent1@(
             return 1;
         }
 
-        /* If this is a shrink then add an on commit operation to shrink the 
+        /* If this is a shrink then add an on commit operation to shrink the
          * extent when the caller's transaction commits. */
         if (ext=>size > psize)
         {
-            /* Abort the nested transaction and exit the transaction code 
+            /* Abort the nested transaction and exit the transaction code
              * block so the caller's transaction is current. */
             nvm_abort();
             goto shrink;
@@ -2548,7 +2633,7 @@ int nvm_resize_extent1@(
 
     /* return success. */
     return 1;
-    
+
     /* Create the on commit operation in the caller's transaction
      * to shrink the extent when it commits. We put this code here to
      * end the nested transaction. */
@@ -2561,8 +2646,8 @@ shrink:;
     return 1;
 }
 #else
-int nvm_resize_extent(   
-        void *extent,    
+int nvm_resize_extent(
+        void *extent,
         size_t psize
         )
 {
@@ -2575,8 +2660,8 @@ int nvm_resize_extent(
     }
     return nvm_resize_extent1(extent, psize);
 }
-int nvm_resize_extent1(   
-        void *extent,    
+int nvm_resize_extent1(
+        void *extent,
         size_t psize
         )
 {
@@ -2605,7 +2690,7 @@ int nvm_resize_extent1(
      * act like it is going to grow because that requires making changes here
      * in a nested transaction that has the region locked. If it turns out that
      * this is actually a shrink, the transaction can be cleaned up. We would
-     * have to start all over again if we acted like a shrink, but it was a 
+     * have to start all over again if we acted like a shrink, but it was a
      * grow. Note that growing is much more common than shrinking. */
 
     /* Create an on abort operation to restore the current size if growing.
@@ -2614,7 +2699,7 @@ int nvm_resize_extent1(
      * arguments will be left as zero. */
     nvm_remx_ctx *rctx = nvm_onabort(nvm_extern_nvm_remx_callback.usid);
 
-    /* Begin a nested transaction to grow the extent. This will commit the 
+    /* Begin a nested transaction to grow the extent. This will commit the
      * extent to grow so we can map it in before we return. If this turns out
      * to be a shrink, this nested transaction will be aborted without
      * modifying anything. */
@@ -2677,7 +2762,7 @@ int nvm_resize_extent1(
         return 1;
     }
 
-    /* If this is a shrink then add an on commit operation to shrink the 
+    /* If this is a shrink then add an on commit operation to shrink the
      * extent when the caller's transaction commits. */
     if (ext->size > psize)
     {
@@ -2766,26 +2851,26 @@ static int compar(const void *v1, const void *v2)
     return 0;
 }
 /**
- * This returns the status of one or more extents from a region. Extents 
- * are ordered by their address within the region.  The base extent is 
- * number zero. To query all extents in a region, call nvm_query_region to 
- * find the number of extents. Call nvm_query_extents with extent == 0 and 
- * count == extent_cnt from the nvm_region_stat. To query extent 42 pass 
- * extent==42 and count==1. Note that adding or deleting an extent can 
- * change the index to other extents since the index is based on the 
- * address order of the extent relative to all existing extents, and 
- * extents can be added or deleted between other extents. Note that the 
- * returned status might not be current if some other thread is changing 
+ * This returns the status of one or more extents from a region. Extents
+ * are ordered by their address within the region.  The base extent is
+ * number zero. To query all extents in a region, call nvm_query_region to
+ * find the number of extents. Call nvm_query_extents with extent == 0 and
+ * count == extent_cnt from the nvm_region_stat. To query extent 42 pass
+ * extent==42 and count==1. Note that adding or deleting an extent can
+ * change the index to other extents since the index is based on the
+ * address order of the extent relative to all existing extents, and
+ * extents can be added or deleted between other extents. Note that the
+ * returned status might not be current if some other thread is changing
  * the region.
- * 
- * If there are any errors then errno is set and the return value is zero. 
+ *
+ * If there are any errors then errno is set and the return value is zero.
  * It is not an error to query extents that do not exist. The data returned
  * is simply zero.
- * 
+ *
  * @param[in] region
  * This is the NVM region descriptor returned by nvm_attach_region or
  * nvm_create_region for the region to query.
- * 
+ *
  * @param[in] extent
  * This is the index of the first extent to query in the ordered array
  * of extents.
@@ -3024,29 +3109,29 @@ int nvm_query_extents(
 /*---------------------------- nvm_map_region ------------------------------*/
 /**
  * This is the code that is common to create region and attach region. It maps
- * the base extent of the region file into the current process and adds 
+ * the base extent of the region file into the current process and adds
  * nvm_region_data to the application.
- * 
+ *
  * The application data mutex is locked if this call returns with success.
  * The caller is responsible for unlocking the mutex.
  *
  * @param[in] pathname
  * This is the pathname used to create the handle.
- * 
+ *
  * @param[in] handle
  * This it the handle returned by the service library on open or create region.
- * 
+ *
  * @param[in] attach
  * The address where the region file is to be mapped.
- * 
+ *
  * @param[in] desc
- * The descriptor to use for this region, or zero to choose an available 
+ * The descriptor to use for this region, or zero to choose an available
  * descriptor.
- * 
+ *
  * @param[in] create
  * True if called from create region so the USID should only be half there
- * 
- * @return 
+ *
+ * @return
  * The descriptor for the region if successful and 0 on failure
  */
 #ifdef NVM_EXT
@@ -3105,7 +3190,7 @@ nvm_desc nvm_map_region(
     /* hold the nvm_app_data mutex while updating the region data */
     nvms_lock_mutex(ad->mutex, 1);
 
-    /* Use the descriptor requested if it is not zero, else allocate a 
+    /* Use the descriptor requested if it is not zero, else allocate a
      * descriptor for this region */
     if (desc != 0)
     {
@@ -3303,7 +3388,7 @@ nvm_desc nvm_map_region(
     /* hold the nvm_app_data mutex while updating the region data */
     nvms_lock_mutex(ad->mutex, 1);
 
-    /* Use the descriptor requested if it is not zero, else allocate a 
+    /* Use the descriptor requested if it is not zero, else allocate a
      * descriptor for this region */
     if (desc != 0)
     {
@@ -3454,9 +3539,9 @@ nvm_desc nvm_map_region(
  * This removes a region from the application and unmaps it from the
  * process. Nothing is done to ensure the region is not in use. The region may
  * contain active transactions that need recovery at next attach.
- * 
+ *
  * No errors are returned since this is releasing resources not acquiring.
- * 
+ *
  * @param[in] desc
  * The descriptor for the region to unmap
  */

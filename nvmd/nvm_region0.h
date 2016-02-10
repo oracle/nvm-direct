@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
 
 The Universal Permissive License (UPL), Version 1.0
 
@@ -79,14 +79,14 @@ extern "C"
     typedef struct nvm_trans_table nvm_trans_table;
     NVM_SRP(nvm_trans_table)
 #endif //NVM_EXT
-    
 
-    /**\brief One contiguous extent of NVM 
+
+    /**\brief One contiguous extent of NVM
      *
      * An NVM region always starts with an initial extent of NVM at offset
      * zero in the region file. There can be additional extents at other
      * offsets within the region. An extent can be managed as a heap, or it
-     * can be used to hold client data such as file data. This is called 
+     * can be used to hold client data such as file data. This is called
      * application managed.
      */
 #ifdef NVM_EXT
@@ -138,7 +138,7 @@ extern "C"
      * This is the minimum amount of information needed to map an NVM region
      * file into a process. It is declared as a separate struct so that it can
      * be allocated in volatile or non-volatile memory. The volatile version
-     * is written to the file at creation time so that it can subsequently 
+     * is written to the file at creation time so that it can subsequently
      * mapped into the process to complete creation.
      */
     struct nvm_region_header
@@ -151,14 +151,14 @@ extern "C"
         uint64_t vsize;
 
         /**
-         * This is the physical size of the base extent which includes the 
+         * This is the physical size of the base extent which includes the
          * nvm_region struct. This is in leu of an nvm_extent for extent 0.
          * If the base extent is resized then this value is changed.
          */
         uint64_t psize;
 
         /**
-         * This is the ASCII name of the region. Note that this imposes a 63 
+         * This is the ASCII name of the region. Note that this imposes a 63
          * byte limit on the name of a region so that this is a null
          * terminated string. Note that this is not the name of the file
          * containing the region. It does not change when the file is copied.
@@ -186,7 +186,7 @@ extern "C"
 #endif //NVM_EXT
 
         /**
-         * Every time an application attaches to a region a random id is 
+         * Every time an application attaches to a region a random id is
          * chosen to identify this attach. The ID is written into the
          * nvm_region and the region data in application global memory. It is
          * used to detect attempts to attach the same region more than once.
@@ -199,7 +199,7 @@ extern "C"
 #else
         uint64_t attach_id;
 #endif //NVM_EXT
-        
+
     };
     typedef struct nvm_region_header nvm_region_header;
 
@@ -226,7 +226,7 @@ extern "C"
     typedef struct nvm_region_init nvm_region_init;
 
     /**\brief Every NVM region starts with a struct nvm_region
-     * 
+     *
      * This struct describes the NVM data that appears at the beginning of a
      * region. All data in the NVM region can be reached from this object.
      */
@@ -247,14 +247,14 @@ extern "C"
 
         /**
          * Immediately following the USID is the header used for mapping in
-         * the region file. It is a separate struct so that it can be 
+         * the region file. It is a separate struct so that it can be
          * initialized with a file write from volatile memory when creating a
          * region.
          */
         nvm_region_header header;
 
         /**
-         * This is the number of times this region has been attached. It can 
+         * This is the number of times this region has been attached. It can
          * be used to recognize the first access to an object after the
          * region is attached by a new process.
          */
@@ -266,17 +266,17 @@ extern "C"
         uint64_t spare;
 
         /**
-         * This is a pointer to an array containing the descriptions of all 
-         * the extents that have been allocated in this region other than the 
+         * This is a pointer to an array containing the descriptions of all
+         * the extents that have been allocated in this region other than the
          * base extent. If there is only the base extent, then this is null.
-         * 
+         *
          * There are usually some unused entries which have a NULL pointer.
          * Note that the entries are not sorted.
          */
         nvm_extent ^extents;
 
         /**
-         * This is the number of entries in the extents array, but not the 
+         * This is the number of entries in the extents array, but not the
          * number of extents currently allocated. There may be null entries
          * that are unused.
          */
@@ -305,7 +305,7 @@ extern "C"
          * reused.
          */
         uint32_t max_transactions;
-        
+
         /**
          * This is the maximum number of undo blocks that any one transaction
          * can consume. If a transaction attempts to fill more blocks then it
@@ -314,7 +314,7 @@ extern "C"
          * undo blocks.
          */
         uint32_t max_undo_blocks;
-        
+
         /**
          * This is the pointer to the root nvm_heap. This is the nvm_heap
          * formed from the NVM following this nvm_region. All other base heaps
@@ -327,8 +327,8 @@ extern "C"
          * This mutex is held to protect the extent list, root heap list, and
          * transaction table list.
          */
-        nvm_mutex reg_mutex; 
-        
+        nvm_mutex reg_mutex;
+
         /**
          * This is the mutex level for the region mutex .
          */
@@ -339,6 +339,9 @@ extern "C"
          * upgrades a persistent struct. The offset from the beginning of the
          * region is used to pick a mutex to lock before beginning an upgrade.
          * A configuration parameter defines the size of the array.
+         *
+         * These have to be NVM mutexes since it is possible that recovery
+         * could encounter a persistent struct that needs upgrade.
          */
         nvm_mutex_array ^upgrade_mutexes;
 
@@ -370,18 +373,18 @@ extern "C"
          * region is complete. This is not an nvm_header because there is no
          * need to check for the volatile pointers being current.
          */
-        nvm_usid type_usid;    
+        nvm_usid type_usid;
 
         /**
          * Immediately following the USID is the header used for mapping in
-         * the region file. It is a separate struct so that it can be 
+         * the region file. It is a separate struct so that it can be
          * initialized with a file write from volatile memory when creating a
          * region.
          */
         nvm_region_header header;
 
         /**
-         * This is the number of times this region has been attached. It can 
+         * This is the number of times this region has been attached. It can
          * be used to recognize the first access to an object after the
          * region is attached by a new process.
          */
@@ -393,17 +396,17 @@ extern "C"
         uint64_t spare;
 
         /**
-         * This is a pointer to an array containing the descriptions of all 
-         * the extents that have been allocated in this region other than the 
+         * This is a pointer to an array containing the descriptions of all
+         * the extents that have been allocated in this region other than the
          * base extent. If there is only the base extent, then this is null.
-         * 
+         *
          * There are usually some unused entries which have a NULL pointer.
          * Note that the entries are not sorted.
          */
         nvm_extent_srp extents; //# nvm_extent *
 
         /**
-         * This is the number of entries in the extents array, but not the 
+         * This is the number of entries in the extents array, but not the
          * number of extents currently allocated. There may be null entries
          * that are unused.
          */
@@ -432,7 +435,7 @@ extern "C"
          * reused.
          */
         uint32_t max_transactions;
-        
+
         /**
          * This is the maximum number of undo blocks that any one transaction
          * can consume. If a transaction attempts to fill more blocks then it
@@ -441,7 +444,7 @@ extern "C"
          * undo blocks.
          */
         uint32_t max_undo_blocks;
-        
+
         /**
          * This is the pointer to the root nvm_heap. This is the nvm_heap
          * formed from the NVM following this nvm_region. All other base heaps
@@ -466,9 +469,12 @@ extern "C"
          * upgrades a persistent struct. The offset from the beginning of the
          * region is used to pick a mutex to lock before beginning an upgrade.
          * A configuration parameter defines the size of the array.
+         *
+         * These have to be NVM mutexes since it is possible that recovery
+         * could encounter a persistent struct that needs upgrade.
          */
         nvm_mutex_array_srp upgrade_mutexes;
-        
+
         /**
          * This is the mutex level for the upgrade mutexes. It is the highest
          * mutex value possible so that upgrades are always possible without
@@ -562,18 +568,18 @@ extern "C"
     };
 
     /**
-     * Verify that a pointer is within a region. Returns 1 if OK and 0 if not. 
+     * Verify that a pointer is within a region. Returns 1 if OK and 0 if not.
      * On 0 retrun errno is set to ERANGE. Note that a pointer may be valid
      * even if it is not pointing to a struct allocated by nvm_alloc, or it is
      * an unmapped virtual address.
-     * 
+     *
      * @param[in] region
      * Pointer to the region in NVM
-     * 
+     *
      * @param[in] ptr
      * The NVM address to verify.
-     * 
-     * @return 
+     *
+     * @return
      * 1 if OK and 0 if not. If error then errno is set.
      */
     static inline int
@@ -596,20 +602,20 @@ extern "C"
         return 0;
     }
 #endif //NVM_EXT
-    
+
     /**
-     * Verify that a range is within a region. Returns 1 if OK and 0 if not. 
+     * Verify that a range is within a region. Returns 1 if OK and 0 if not.
      * On 0 return errno is set to ERANGE. Note that a range may be valid
      * even if it is not pointing to a struct allocated by nvm_alloc, or it is
      * an unmapped virtual address.
-     * 
+     *
      * @param[in] region
      * Pointer to the region in NVM
-     * 
+     *
      * @param[in] ptr
      * The NVM address to verify.
-     * 
-     * @return 
+     *
+     * @return
      * 1 if OK and 0 if not. If error then errno is set.
      */
     static inline int
@@ -632,7 +638,7 @@ extern "C"
         return 0;
     }
 #endif //NVM_EXT
-    
+
     /**
      * This takes an address and determines which currently attached region
      * contains it. This may require looping through the list of attached
@@ -656,44 +662,44 @@ extern "C"
 
     /**
      * This is the internal version of nvm_remove_extent. It does the real work
-     * of nvm_remove_extent, but does not require the extent be application 
+     * of nvm_remove_extent, but does not require the extent be application
      * managed.
-     * 
+     *
      * @param extent
      * Address of the extent to delete.
-     * @return 
+     * @return
      */
 #ifdef NVM_EXT
-    int nvm_remove_extent1@( 
-        void ^extent  
+    int nvm_remove_extent1@(
+        void ^extent
         );
 #else
-    int nvm_remove_extent1(   
-        void *extent    
+    int nvm_remove_extent1(
+        void *extent
         );
 #endif //NVM_EXT
-    
+
     /**
      * This is the internal version of nvm_resize_extent. It does the real work
-     * of nvm_resize_extent, but does not require the extent be application 
+     * of nvm_resize_extent, but does not require the extent be application
      * managed.
-     * 
+     *
      * @param extent
      * Address of the extent to delete.
-     * 
+     *
      * @param psize
      * New size for the extent.
-     * 
-     * @return 
+     *
+     * @return
      */
 #ifdef NVM_EXT
-    int nvm_resize_extent1@( 
-        void ^extent,   
+    int nvm_resize_extent1@(
+        void ^extent,
         size_t psize
         );
 #else
-    int nvm_resize_extent1(   
-        void *extent,    
+    int nvm_resize_extent1(
+        void *extent,
         size_t psize
         );
 #endif //NVM_EXT
