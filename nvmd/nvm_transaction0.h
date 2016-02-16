@@ -668,7 +668,7 @@ extern "C"
         /**
          * The USID that maps to the nvm_type for nvm_trans_table
          */
-        nvm_usid type_usid; //#
+        nvm_usid type_usid;
 
         /**
          * To support additional concurrent transactions and/or more undo
@@ -1369,7 +1369,7 @@ extern "C"
         nvm_heap ^rh
         );
 #else
-    void nvm_create_trans_table(//#
+    void nvm_create_trans_table(
         nvm_region *rg,
         nvm_heap *rh
         );

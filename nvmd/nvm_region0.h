@@ -390,7 +390,7 @@ extern "C"
          * There are usually some unused entries which have a NULL pointer.
          * Note that the entries are not sorted.
          */
-        nvm_extent_srp extents; //# nvm_extent *
+        nvm_extent_srp extents; // nvm_extent *
 
         /**
          * This is the number of entries in the extents array, but not the
@@ -410,7 +410,7 @@ extern "C"
          * consistent state when the owning process dies in the middle of
          * modifying NVM.
          */
-        nvm_trans_table_srp nvtt_list; //# nvm_trans_table *
+        nvm_trans_table_srp nvtt_list; // nvm_trans_table *
 
         /**
          * This is the maximum number of simultaneous transactions supported

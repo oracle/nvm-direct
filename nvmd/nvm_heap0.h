@@ -225,7 +225,7 @@ extern "C"
 
     };
 #endif //NVM_EXT
-    extern const nvm_type nvm_type_nvm_blk; //#
+    extern const nvm_type nvm_type_nvm_blk;
 
     /**
      * There are a number of free lists for various block sizes. Each list

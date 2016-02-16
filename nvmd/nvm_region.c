@@ -900,7 +900,7 @@ void *nvm_new_root_object(
 
     /* verify region USID is valid. */
     nvm_region *region = rd->region;
-    nvm_verify(region, shapeof(nvm_region)); //#
+    nvm_verify(region, shapeof(nvm_region));
 
     /* verify new root object is in the right region. */
     if (!nvm_region_ptr(region, rootobj))

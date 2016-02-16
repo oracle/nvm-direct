@@ -1511,8 +1511,8 @@ void ^nvm_alloc@(
         }
 
         /* The amount consumed is the physical size of the allocated block. */
-        nvm_blk ^next = nvb=>neighbors.fwrd; //#
-        size_t consume = (next - nvb) * sizeof(nvm_blk); //#
+        nvm_blk ^next = nvb=>neighbors.fwrd;
+        size_t consume = (next - nvb) * sizeof(nvm_blk);
         heap=>consumed @+= consume;
 
         /* Transactionally store the allocated nvm_blk pointer in the on abort
@@ -1522,7 +1522,7 @@ void ^nvm_alloc@(
 
         /* Mark the newly allocate block as allocated. Undo already generated
          * in nvm_alloc_blk. */
-        nvb=>allocated ~= request; //#
+        nvb=>allocated ~= request;
 
         /* Add the allocation at the head of  this heap's allocated list.
          * Note that nvm_alloc_blk already created undo for *nvb. */
@@ -1631,7 +1631,7 @@ void *nvm_alloc(
         {
             nvm_abort();
             errno = ENOMEM;
-            nvm_txend(); //#
+            nvm_txend();
             goto fail;
         }
 
@@ -1672,7 +1672,7 @@ void *nvm_alloc(
             /* the allocated list is empty, so now it has one entry. */
             nvm_blk_set(&heap->list.tail, nvb); // this is now the tail
         }
-        nvm_flush(&heap->list, sizeof(heap->list)); //#
+        nvm_flush(&heap->list, sizeof(heap->list));
         nvm_flush1(nvb); // new nvm_blk completely updated so flush.
 
         /* Do the standard initialization of NVM allocated data. It is just

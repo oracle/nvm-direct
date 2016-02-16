@@ -516,8 +516,8 @@ extern "C"
         void ^rootobj
         );
 #else
-    void *nvm_new_root_object(//#
-        void *rootobj //#
+    void *nvm_new_root_object(
+        void *rootobj
         );
 #endif //NVM_EXT
 
@@ -760,8 +760,8 @@ void ^nvm_add_extent@(
         void ^extent
         );
 #else
-    int nvm_remove_extent(//#
-        void *extent //#
+    int nvm_remove_extent(
+        void *extent
         );
 #endif //NVM_EXT
 

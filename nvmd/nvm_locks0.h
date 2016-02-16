@@ -127,7 +127,7 @@ typedef persistent struct nvm_amutex nvm_amutex;
 struct nvm_amutex
 {
     /** Force 8 byte alignment without precompiler support. */
-    uint64_t _align[0]; //#
+    uint64_t _align[0];
 
     /**
      * This describes how the mutex is currently locked. If it is zero,
