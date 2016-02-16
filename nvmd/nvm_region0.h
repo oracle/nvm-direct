@@ -238,14 +238,6 @@ extern "C"
     size(1024)
     {
         /**
-         * The first bytes of every NVM region created by nvm is the type
-         * USID for nvm_region. This is zero until the initialization of the
-         * region is complete. This is not in nvm_header because there is no
-         * need to check for the volatile pointers being current.
-         */
-//        nvm_usid type_usid; //# this should not be needed
-
-        /**
          * Immediately following the USID is the header used for mapping in
          * the region file. It is a separate struct so that it can be
          * initialized with a file write from volatile memory when creating a
@@ -358,11 +350,6 @@ extern "C"
          */
         transient
         nvm_desc desc;
-
-        /*
-         * Leave some padding for growth. Assumes nvm_mutex is 8 bytes
-         */
-        uint8_t _padding_to_1024[1024 - 204];
     };
 #else
     struct nvm_region

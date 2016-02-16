@@ -164,27 +164,6 @@ nvms_file *nvms_create_region(
         return NULL;
     }
 
-    /* fill it with zeroes to allocate the desired amount of space. Note that
-     * this will always round up to the next megabyte. */
-//    const size_t bufsz = 1024 * 1024;
-//    void *buf = malloc(bufsz);
-//    memset(buf, 0, bufsz);
-//    size_t cleared;
-//    for (cleared = 0; cleared < pspace; cleared += bufsz)
-//    {
-//        int cnt = pwrite(fd, buf, bufsz);
-//        if (cnt < 0)
-//        {
-//            int e = errno;
-//            free(buf);
-//            close(fd);
-//            unlink(pathname);
-//            errno = e;
-//            return NULL;
-//        }
-//    }
-//    free(buf);
-
     /* set the file size to the amount of virtual space it should consume. */
     if (ftruncate(fd, vspace) < 0)
         nvms_assert_fail("ftruncate failed");

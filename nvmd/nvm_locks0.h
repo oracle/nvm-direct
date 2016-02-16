@@ -42,7 +42,7 @@ SOFTWARE.
       nvm_locks0.h - private declarations for NVM locking
 
     DESCRIPTION\n
-      This contains the declarations for NVM locking that are 
+      This contains the declarations for NVM locking that are
       private to the NVM library
 
  */
@@ -242,7 +242,7 @@ nvm_mutex_array *nvm_create_mutex_array1(
 #endif
 
     /**
-     * There is an nvm_wait struct for every NVM mutex that has a waiter or 
+     * There is an nvm_wait struct for every NVM mutex that has a waiter or
      * recently had waiters.
      */
 #ifdef NVM_EXT
@@ -260,7 +260,7 @@ nvm_mutex_array *nvm_create_mutex_array1(
         nvm_amutex *nvmx;
     };
 #endif //NVM_EXT
-    
+
     /**
      * The nvm_wait structures are distributed into hash buckets based on the
      * address of the nvm_amutex. An nvm_wait_list struct is one bucket in the
@@ -269,13 +269,12 @@ nvm_mutex_array *nvm_create_mutex_array1(
     struct nvm_wait_list
     {
         nvms_mutex mutex;
-//        nvm_wait *delete_me; // temp to unlink and delete a node
         nvm_wait *head;
     };
 
     /**
      * This defines the hash table used to wait for an nvm_amutex to be available
-     * for locking. There is one of these in application global memory for 
+     * for locking. There is one of these in application global memory for
      * each region.
      */
     struct nvm_wait_table
@@ -290,14 +289,14 @@ nvm_mutex_array *nvm_create_mutex_array1(
      * this region. It is allocated in volatile application global memory. The
      * volatile mutex in each bucket is initialized. When this returns success,
      * the region data will point at the allocated waiter table.
-     * 
+     *
      * @param[in] rd
      * Pointer to the region data for the region containing the NVM mutexes
-     * 
+     *
      * @param[in] sz
      * The number of buckets to allocate for the wait table.
-     * 
-     * @return 
+     *
+     * @return
      * Returns 1 on success and 0 if allocation or service mutex creation fails
      */
     int nvm_wait_table_create(nvm_region_data *rd, unsigned sz);
@@ -307,17 +306,17 @@ nvm_mutex_array *nvm_create_mutex_array1(
      * cleaning up after a failed attach. An assert fires if there are any
      * threads waiting on any mutexes in this region when this is called. The
      * easiest way to ensure this is to verify there are no active transactions.
-     * 
-     * This has no effect on any persistent data so there is no need to call 
+     *
+     * This has no effect on any persistent data so there is no need to call
      * this if the entire application is terminating.
-     * 
+     *
      * On return the pointer to the waiter table in the region data will be
      * cleared. If it is already cleared then this will return without doing
      * anything.
-     * 
+     *
      * @param[in] rd
      * Pointer to the region data for the region containing the waiter table
-     * 
+     *
      * @return
      * 1 if successful and 0 if we had to give up because we could not wait
      */
@@ -337,18 +336,18 @@ nvm_mutex_array *nvm_create_mutex_array1(
         uint8_t level
         );
 #endif //NVM_EXT
-    
+
     /**
      * This is called to unlock an NVM mutex when a transaction commits or an
      * NVM lock undo record is applied for rollback or commit. It is given the
      * undo record that was constructed when the lock was acquired.
-     * 
-     * @param tx[in] 
+     *
+     * @param tx[in]
      * The transaction that owns the lock.
-     * 
+     *
      * @param td[in]
      * The thread private data for the thread owning the transaction.
-     * 
+     *
      * @param lk[in]
      * The lock undo record created by nvm_lock.
      */
@@ -365,17 +364,17 @@ nvm_mutex_array *nvm_create_mutex_array1(
         nvm_lkrec *lk
         );
 #endif //NVM_EXT
-    
+
     /**
      * After recovery discovers all the transactions threads and before doing
      * recovery, it needs to resolve the state of any NVM locks that were in
      * flux when the NVM region was last detached. For every dead transaction
      * that had a lock in the middle of acquisition or release, this routine
      * is called to resolve its state.
-     * 
+     *
      * @param ttd[in]
      * Transaction table volatile data for the region being recovered.
-     * 
+     *
      * @param lk[in]
      * Address of a lock that might need its state repaired.
      */

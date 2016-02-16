@@ -75,7 +75,7 @@ extern "C"
 #ifdef NVM_EXT
     typedef persistent struct nvm_blk nvm_blk;
     persistent struct nvm_link
-    tag("Link in doubly linked list of nvm_blk") 
+    tag("Link in doubly linked list of nvm_blk")
     {
         /** Pointer to the next node in the list */
         nvm_blk ^fwrd;
@@ -90,10 +90,10 @@ extern "C"
     struct nvm_link
     {
         /** Pointer to the next node in the list */
-        nvm_blk_srp fwrd; // ^nvm_blk    
+        nvm_blk_srp fwrd; // ^nvm_blk
 
         /** Pointer to the previous node in the list */
-        nvm_blk_srp back; // ^nvm_blk    
+        nvm_blk_srp back; // ^nvm_blk
     };
     typedef struct nvm_link nvm_link;
     extern const nvm_type nvm_type_nvm_link;
@@ -101,7 +101,7 @@ extern "C"
 
     /**
      * This is a list of doubly linked  nvm_blk structs. It is embedded in
-     * other persistent structs. The nvm_blk at the head of the list has a 
+     * other persistent structs. The nvm_blk at the head of the list has a
      * NULL back pointer, and the tail has a NULL forward pointer.
      */
 #ifdef NVM_EXT
@@ -119,20 +119,20 @@ extern "C"
     struct nvm_list
     {
         /** Pointer to the head of the list */
-        nvm_blk_srp head; // ^nvm_blk    
+        nvm_blk_srp head; // ^nvm_blk
 
         /** Pointer to the tail of the list */
-        nvm_blk_srp tail; // ^nvm_blk    
+        nvm_blk_srp tail; // ^nvm_blk
     };
     typedef struct nvm_list nvm_list;
 #endif //NVM_EXT
-    extern const nvm_type nvm_type_nvm_list; 
+    extern const nvm_type nvm_type_nvm_list;
 
-    /**\brief Heap block descriptor for one allocated or free block of NVM. 
+    /**\brief Heap block descriptor for one allocated or free block of NVM.
      *
      * nvm_blk describes one block of memory in an nvm_heap. It is immediately
      * followed by either an allocated block containing data or a completely
-     * free block of zeroed NVM. 
+     * free block of zeroed NVM.
      */
 #ifdef NVM_EXT
     persistent struct nvm_blk
@@ -143,19 +143,12 @@ extern "C"
     size(64)
     {
         /**
-         * The type usid is first. It is used to verify heap and freelist 
-         * linked lists. It can be scanned for in NVM to help reconstuct the 
-         * lists if there is corruption.
-         */
-//        nvm_usid type_usid; //#
-
-        /**
-         * All the blocks in a heap managed extent are linked in address 
+         * All the blocks in a heap managed extent are linked in address
          * order. The back link points at the descriptor of the block that
          * is just before this block, and the forward pointer points at the
          * descriptor that is just after this block. Thus the block sizes can
          * be calculated from the pointers. The extent ends with a descriptor
-         * that has a null forward pointer. Similarly the extent begins with 
+         * that has a null forward pointer. Similarly the extent begins with
          * a descriptor that has a null back pointer. */
         nvm_link neighbors;
 
@@ -189,19 +182,19 @@ extern "C"
     struct nvm_blk
     {
         /**
-         * The type usid is first. It is used to verify heap and freelist 
-         * linked lists. It can be scanned for in NVM to help reconstuct the 
+         * The type usid is first. It is used to verify heap and freelist
+         * linked lists. It can be scanned for in NVM to help reconstuct the
          * lists if there is corruption.
          */
-        nvm_usid type_usid;    
+        nvm_usid type_usid;
 
         /**
-         * All the blocks in a heap managed extent are linked in address 
+         * All the blocks in a heap managed extent are linked in address
          * order. The back link points at the descriptor of the block that
          * is just before this block, and the forward pointer points at the
          * descriptor that is just after this block. Thus the block sizes can
          * be calculated from the pointers. The extent ends with a descriptor
-         * that has a null forward pointer. Similarly the extent begins with 
+         * that has a null forward pointer. Similarly the extent begins with
          * a descriptor that has a null back pointer. */
         nvm_link neighbors;
 
@@ -220,7 +213,7 @@ extern "C"
          * it was allocated from. A free block points to the freelist where it
          * can be found. See the allocated field.
          */
-        void_srp ptr; // either nvm_heap* or nvm_freelist* 
+        void_srp ptr; // either nvm_heap* or nvm_freelist*
 
         /**
          * This is the number of allocated bytes in this block. This may be
@@ -238,7 +231,7 @@ extern "C"
      * There are a number of free lists for various block sizes. Each list
      * only contains blocks with usable space within one power of 2. Except
      * for the last list which has the huge blocks of any size.
-     * 
+     *
      * This constant defines the number of free lists.
      */
 #define FREELIST_CNT (25)
@@ -249,13 +242,13 @@ extern "C"
     typedef nvm_list nvm_freelist;
 
     /**
-     * An nvm_heap is used for allocating persistent structs. The root heap is 
+     * An nvm_heap is used for allocating persistent structs. The root heap is
      * created when the NVM region is created. When an extent of NVM is added
      * to a region it may be formatted as a heap containing all the NVM in the
      * extent. This struct starts at the first byte of a heap managed extent.
      * The managed space begins after this struct.
-     * 
-     * Multiple heaps are useful for limiting resource consumption and for 
+     *
+     * Multiple heaps are useful for limiting resource consumption and for
      * grouping multiple allocations for simultaneous deallocation.
      */
 #ifdef NVM_EXT
@@ -266,7 +259,7 @@ extern "C"
     size(1024)
     {
         /**
-         * This is the ASCII name of the heap. Note that this imposes a 63 
+         * This is the ASCII name of the heap. Note that this imposes a 63
          * byte limit on the name of a heap so that this is a null
          * terminated string.
          */
@@ -274,11 +267,11 @@ extern "C"
 
         /**
          * This is a pointer back to the nvm_region containing this NVM heap.
-         * It allows quickly finding the nvm_region from any nvm struct by 
+         * It allows quickly finding the nvm_region from any nvm struct by
          * following the heap pointer in the nvm_blk just before the struct.
          */
         nvm_region ^region;
-        
+
         /**
          * This is the address of the extent containing this heap. In the
          * current implementation it is either this nvm_heap or the nvm_region.
@@ -319,7 +312,7 @@ extern "C"
          * must be locked exclusive by any transaction that updates the heap.
          */
         nvm_mutex heap_mutex;
-        
+
         /**
          * This is the mutex level for the mutex in a heap.
          */
@@ -332,15 +325,15 @@ extern "C"
         nvm_list list;
 
         /**
-         * There are a number of free lists for various block sizes. Each 
-         * list only contains blocks with usable space within one power of 2, 
-         * except for the last list which has the huge blocks of any size. 
+         * There are a number of free lists for various block sizes. Each
+         * list only contains blocks with usable space within one power of 2,
+         * except for the last list which has the huge blocks of any size.
          * This array defines the max usable block size for each free list.
          */
         size_t free_size[FREELIST_CNT];
 
         /**
-         * This is the array of free lists. Each free list is a doubly linked 
+         * This is the array of free lists. Each free list is a doubly linked
          * list of nvm_blk structs that are all free.
          */
         nvm_freelist free[FREELIST_CNT];
@@ -351,7 +344,7 @@ extern "C"
          * if non-transactional allocation is finished.
          */
         nvm_blk ^nvb_free;
-        
+
         /**
          * This is zero when the heap is generally available for allocation.
          * It is -1 if the heap has an on commit operation scheduled to
@@ -362,19 +355,17 @@ extern "C"
          * clear the flag.
          */
         int32_t inuse;
-
-        uint8_t _padding_to_1024[1024 - 772];
     };
 #else
     struct nvm_heap
     {
         /**
-         * The type usid is first. It is used to verify that this is a heap. 
+         * The type usid is first. It is used to verify that this is a heap.
          */
-        nvm_usid type_usid;    
+        nvm_usid type_usid;
 
         /**
-         * This is the ASCII name of the heap. Note that this imposes a 63 
+         * This is the ASCII name of the heap. Note that this imposes a 63
          * byte limit on the name of a heap so that this is a null
          * terminated string.
          */
@@ -382,11 +373,11 @@ extern "C"
 
         /**
          * This is a pointer back to the nvm_region containing this NVM heap.
-         * It allows quickly finding the nvm_region from any nvm struct by 
+         * It allows quickly finding the nvm_region from any nvm struct by
          * following the heap pointer in the nvm_blk just before the struct.
          */
         nvm_region_srp region; // nvm_region ^region
-        
+
         /**
          * This is the address of the extent containing this heap. In the
          * current implementation it is either this nvm_heap or the nvm_region.
@@ -426,7 +417,7 @@ extern "C"
          * must be locked exclusive by any transaction that updates the heap.
          */
         nvm_mutex heap_mutex;
-        
+
         /**
          * This is the mutex level for the mutex in a heap.
          */
@@ -439,15 +430,15 @@ extern "C"
         nvm_list list;
 
         /**
-         * There are a number of free lists for various block sizes. Each 
-         * list only contains blocks with usable space within one power of 2, 
-         * except for the last list which has the huge blocks of any size. 
+         * There are a number of free lists for various block sizes. Each
+         * list only contains blocks with usable space within one power of 2,
+         * except for the last list which has the huge blocks of any size.
          * This array defines the max usable block size for each free list.
          */
         size_t free_size[FREELIST_CNT];
 
         /**
-         * This is the array of free lists. Each free list is a doubly linked 
+         * This is the array of free lists. Each free list is a doubly linked
          * list of nvm_blk structs that are all free.
          */
         nvm_freelist free[FREELIST_CNT];
@@ -458,7 +449,7 @@ extern "C"
          * if non-transactional allocation is finished.
          */
         nvm_blk_srp nvb_free; // nvm_blk ^nvb_free
-        
+
         /**
          * This is zero when the heap is generally available for allocation.
          * It is -1 if the heap has an on commit operation scheduled to
@@ -473,26 +464,26 @@ extern "C"
         uint8_t _padding_to_1024[1024 - 772];
     };
 #endif //NVM_EXT
-    
+
     /**
      * This creates the root heap in the base extent. This is called before
      * there is a transaction table so it is done non-transactionally. The
-     * heap is left in a state where nvm_allocNT can be used to do permanent 
+     * heap is left in a state where nvm_allocNT can be used to do permanent
      * allocation. This does not need to be transactional because the USID
      * in the nvm_region is zero indicating the region is not yet initialized
-     * 
+     *
      * @param[in] name
      * This is the name of the root heap which is the same as the name of the
      * region.
-     * 
+     *
      * @param[in] region
      * This points to the nvm_region at the base of the region.
-     * 
+     *
      * @param[in] pspace
-     * This is the size of the base extent. The root heap follows the 
+     * This is the size of the base extent. The root heap follows the
      * nvm_region.
-     * 
-     * @return 
+     *
+     * @return
      * Pointer to the root heap. Any errors fire an assert.
      */
 #ifdef NVM_EXT
@@ -508,16 +499,16 @@ extern "C"
         size_t pspace
         );
 #endif //NVM_EXT
-    
+
     /**
      * Slice off the indicated size from the front of the heap. This is
      * only allowed up until the transaction table is ready to use
-     * during construction of the segment. Space allocated this way 
+     * during construction of the segment. Space allocated this way
      * cannot ever be freed. This does not support array allocation or
      * extensible struct allocation.
-     * 
+     *
      * @param definition of the struct to allocate
-     * @return pointer to the allocated bytes, or return NULL if errno 
+     * @return pointer to the allocated bytes, or return NULL if errno
      * has an error.
      */
 #ifdef NVM_EXT
@@ -525,7 +516,7 @@ extern "C"
 #else
     void *nvm_allocNT(nvm_heap *heap, const nvm_type *tp);
 #endif //NVM_EXT
-    
+
     /**
      * This is called when the segment is ready for transactions at segment
      * creation. After this is called nvm_allocNT will no longer work.
@@ -541,12 +532,12 @@ extern "C"
      * When a struct is allocated it is initialized to a null state. All numeric
      * values are zeroed, and all pointers are set to be null, which is an
      * offset of 1.
-     * @param[in] addr 
+     * @param[in] addr
      * Address of allocated memory
-     * 
-     * @param[in] tp 
+     *
+     * @param[in] tp
      * Definition of the allocated struct
-     * 
+     *
      * @param[in] size
      * The number of bytes allocated. This will be larger than tp->size if this
      * was an array allocation or an extensible struct allocation.
@@ -556,7 +547,7 @@ extern "C"
 #else
     void nvm_alloc_init(void *addr, const nvm_type *tp, size_t size);
 #endif //NVM_EXT
-    
+
 
 
 #ifdef	__cplusplus

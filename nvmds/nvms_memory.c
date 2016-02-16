@@ -244,22 +244,6 @@ void nvms_thread_free(
     free(cur);
 }
 
-///**
-// * This returns the address of the application root pointer for the current
-// * application. The application root pointer itself must be zero when the
-// * application is started. It is in application global memory so that it is
-// * automatically released when all threads in an application exit.
-// *
-// * This routine is used both to get and set the application root pointer.
-// * It is only called once per thread in nvm_thread_init.
-// *
-// * @return
-// * Address in application global memory of the application root pointer.
-// */
-//void **nvms_app_ptr_addr()
-//{
-//    return &nvms_app_ptr;
-//}
 /**
  * This allocates size bytes of zeroed memory that is visible to the
  * calling application.
@@ -293,7 +277,6 @@ void *nvms_app_alloc(size_t size)
  */
 int nvms_app_free(void *ptr)
 {
-//    printf("%p a free++\n", ptr);
     free(ptr);
     return 1;
 }

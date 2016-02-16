@@ -42,15 +42,15 @@ SOFTWARE.
       transaction0.h - private transaction management declarations
 
     DESCRIPTION\n
-      This contains the declarations for transaction management that are 
+      This contains the declarations for transaction management that are
       private to the NVM library
- 
+
  */
 
 #ifndef NVM_TRANSACTION0_H
 #define	NVM_TRANSACTION0_H
 
-#include "nvms_locking.h" 
+#include "nvms_locking.h"
 #include "nvms_sleeping.h"
 
 
@@ -66,7 +66,7 @@ extern "C"
     enum nvm_trans_state
     {
         /**
-         * This slot is available for another transaction. There is no 
+         * This slot is available for another transaction. There is no
          * undo linked to the transaction.
          */
         nvm_idle_state = 0,
@@ -127,22 +127,17 @@ extern "C"
     typedef enum nvm_trans_state nvm_trans_state;
 
     /**
-     * This struct is one slot in the transaction table. It points to all the 
-     * undo in NVM for one transaction. 
+     * This struct is one slot in the transaction table. It points to all the
+     * undo in NVM for one transaction.
      */
 #ifdef NVM_EXT
     persistent struct nvm_transaction
     USID("37ca 2aac e2f6 4639 18e6 f015 2d8c 2a6e")
     tag("One transaction slot for one transaction")
     version(0)
-    alignas(16)    
+    alignas(16)
     size(128)
     {
-        /**
-         * The USID that maps to the nvm_type for nvm_transaction
-         */
-//        nvm_usid type_usid; //#
-
         /**
          * The transaction slot number of this transaction. This is used to
          * identify the NVM locks that this transaction owns. This is set
@@ -161,11 +156,11 @@ extern "C"
          * This is 1 when the tansaction is dead and included in the count
          * of dead transactions in the transaction table volatile data.
          */
-        transient uint8_t dead;    
+        transient uint8_t dead;
 
         /**
          * This is just for debugging. Every time a transaction is begun a
-         * new transaction number is assigned to the transaction. This is 
+         * new transaction number is assigned to the transaction. This is
          * stored in the undo blocks as well as here to help in debugging.
          * Note that the transaction number can wrap since it is only 4 bytes.
          */
@@ -181,14 +176,14 @@ extern "C"
          * The on_commit operations form a linked list that can be quickly
          * scanned when the transaction is in state committing. This does not
          * need need to be atomically updated with adding the on_commit
-         * operation since it is ignored if there is a failure requiring 
+         * operation since it is ignored if there is a failure requiring
          * rollback. Note that cleanup at commit is done in the order added
          * which is the reverse of the order on the linked list.
          */
         nvm_on_commit ^commit_ops;
 
         /**
-         * This is a pointer to the last NVM lock operation added to the 
+         * This is a pointer to the last NVM lock operation added to the
          * transaction. The NVM lock operations form a linked list so that
          * all the locks held to protect update of an NVM object can be
          * released at commit. This list includes nvm_on_abort records.
@@ -196,7 +191,7 @@ extern "C"
         nvm_lkrec ^held_locks;
 
         /**
-         * This points to the last save point undo operation. The save 
+         * This points to the last save point undo operation. The save
          * point operations are linked to each other by pointers. This is
          * needed for verifying a save point name before rollback.
          */
@@ -209,14 +204,14 @@ extern "C"
          * the redo for a nested transaction.
          */
         nvm_nested ^nstd_last;
-        
+
         /**
          * This is the maximum number of undo blocks that this transaction can
          * consume. If the transaction attempts to fill more blocks then it
          * will fire an assert killing its thread and aborting its transaction.
          * The goal is to prevent a runaway transaction from consuming all the
          * undo blocks.
-         * 
+         *
          * This is set when the transaction is begun rather than checking on
          * every undo block add. This ensures that reducing the maximum does
          * not affect currently running transactions.
@@ -228,7 +223,7 @@ extern "C"
          * in a separate volatile memory struct, but it is simpler to put it
          * here and reconstruct when needed.
          */
-        
+
         /**
          * This is the number of undo blocks currently filled by this
          * transaction. If it exceeds the maximum then the thread is killed.
@@ -238,9 +233,9 @@ extern "C"
         transient uint32_t cur_undo_blocks;
 
         /**
-         * This is the current descriptor for the region containing this 
-         * nvm_transaction. It is set at every region attach as part of 
-         * recovery. 
+         * This is the current descriptor for the region containing this
+         * nvm_transaction. It is set at every region attach as part of
+         * recovery.
          */
         transient nvm_desc desc;
 
@@ -250,7 +245,7 @@ extern "C"
          * nested transaction will decrease this number. The current undo
          * operation count is used to compare undo records in linked lists to
          * decern their relative creation order.
-         * 
+         *
          * This is not maintained atomically with committing undo to exist.
          * Thus it must be recalculated if the thread owning this transaction
          * dies.
@@ -259,10 +254,10 @@ extern "C"
 
         /**
          * This is the number of bytes of operation data that can be stored in
-         * the current undo block assuming another operation would be 
+         * the current undo block assuming another operation would be
          * allocated at the front of the undo data area. Note this will
          * always be a multiple of 8 for alignment.
-         * 
+         *
          * This is not maintained atomically with committing undo to exist.
          * Thus it must be recalculated if the thread owning this transaction
          * dies.
@@ -270,7 +265,7 @@ extern "C"
         transient uint32_t undo_bytes;
 
         /**
-         * This is the low order bits of the time in seconds when the last 
+         * This is the low order bits of the time in seconds when the last
          * attempt was made to spawn a thread to recover this transaction. It
          * is only meaningful if the transaction is in the dead transaction
          * list, and the spawn_cnt is not zero. 16 bits is enough to measure
@@ -287,9 +282,6 @@ extern "C"
          */
         transient uint8_t spawn_cnt;
 
-        /* padding for alignment */
-        uint8_t _pad1[1];
-
         /**
          * This is a pointer to the parent transaction in another region if
          * this is an off region nested transaction. If this is a base
@@ -301,7 +293,7 @@ extern "C"
          * This is the address of the last operation data written. New
          * operation data must be written below this. It is always 8 byte
          * aligned.
-         * 
+         *
          * This is not maintained atomically with committing undo to exist.
          * Thus it must be recalculated if the thread owning this transaction
          * dies.
@@ -313,8 +305,6 @@ extern "C"
          * for that list.
          */
         transient nvm_transaction ^link;
-
-        uint8_t _padding_to_128[128 - 112]; //#
     };
 #else
     struct nvm_transaction
@@ -322,7 +312,7 @@ extern "C"
         /**
          * The USID that maps to the nvm_type for nvm_transaction
          */
-        nvm_usid type_usid;    
+        nvm_usid type_usid;
 
         /**
          * The transaction slot number of this transaction. This is used to
@@ -342,11 +332,11 @@ extern "C"
          * This is 1 when the tansaction is dead and included in the count
          * of dead transactions in the transaction table volatile data.
          */
-        uint8_t dead;    
+        uint8_t dead;
 
         /**
          * This is just for debugging. Every time a transaction is begun a
-         * new transaction number is assigned to the transaction. This is 
+         * new transaction number is assigned to the transaction. This is
          * stored in the undo blocks as well as here to help in debugging.
          * Note that the transaction number can wrap since it is only 4 bytes.
          */
@@ -355,21 +345,21 @@ extern "C"
         /**
          * This is the linked list of undo blocks for this transaction.
          */
-        nvm_undo_blk_srp undo;    
+        nvm_undo_blk_srp undo;
 
         /**
          * This is a pointer to the last on_commit operation added.
          * The on_commit operations form a linked list that can be quickly
          * scanned when the transaction is in state committing. This does not
          * need need to be atomically updated with adding the on_commit
-         * operation since it is ignored if there is a failure requiring 
+         * operation since it is ignored if there is a failure requiring
          * rollback. Note that cleanup at commit is done in the order added
          * which is the reverse of the order on the linked list.
          */
-        nvm_on_commit_srp commit_ops;    
+        nvm_on_commit_srp commit_ops;
 
         /**
-         * This is a pointer to the last NVM lock operation added to the 
+         * This is a pointer to the last NVM lock operation added to the
          * transaction. The NVM lock operations form a linked list so that
          * all the locks held to protect update of an NVM object can be
          * released at commit. This list includes nvm_on_abort records.
@@ -377,7 +367,7 @@ extern "C"
         nvm_lkrec_srp held_locks; // nvm_lkrec ^held_locks
 
         /**
-         * This points to the last save point undo operation. The save 
+         * This points to the last save point undo operation. The save
          * point operations are linked to each other by pointers. This is
          * needed for verifying a save point name before rollback.
          */
@@ -390,14 +380,14 @@ extern "C"
          * the redo for a nested transaction.
          */
         nvm_nested_srp nstd_last; // nvm_nested ^nstd_last
-        
+
         /**
          * This is the maximum number of undo blocks that this transaction can
          * consume. If the transaction attempts to fill more blocks then it
          * will fire an assert killing its thread and aborting its transaction.
          * The goal is to prevent a runaway transaction from consuming all the
          * undo blocks.
-         * 
+         *
          * This is set when the transaction is begun rather than checking on
          * every undo block add. This ensures that reducing the maximum does
          * not affect currently running transactions.
@@ -409,7 +399,7 @@ extern "C"
          * in a separate volatile memory struct, but it is simpler to put it
          * here and reconstruct when needed.
          */
-        
+
         /**
          * This is the number of undo blocks currently filled by this
          * transaction. If it exceeds the maximum then the thread is killed.
@@ -419,11 +409,11 @@ extern "C"
         uint32_t cur_undo_blocks;
 
         /**
-         * This is the current descriptor for the region containing this 
-         * nvm_transaction. It is set at every region attach as part of 
-         * recovery. 
+         * This is the current descriptor for the region containing this
+         * nvm_transaction. It is set at every region attach as part of
+         * recovery.
          */
-        nvm_desc desc;    
+        nvm_desc desc;
 
         /**
          * This is the number of current undo operations in the entire linked
@@ -431,27 +421,27 @@ extern "C"
          * nested transaction will decrease this number. The current undo
          * operation count is used to compare undo records in linked lists to
          * decern their relative creation order.
-         * 
+         *
          * This is not maintained atomically with committing undo to exist.
          * Thus it must be recalculated if the thread owning this transaction
          * dies.
          */
-        uint32_t undo_ops;    
+        uint32_t undo_ops;
 
         /**
          * This is the number of bytes of operation data that can be stored in
-         * the current undo block assuming another operation would be 
+         * the current undo block assuming another operation would be
          * allocated at the front of the undo data area. Note this will
          * always be a multiple of 8 for alignment.
-         * 
+         *
          * This is not maintained atomically with committing undo to exist.
          * Thus it must be recalculated if the thread owning this transaction
          * dies.
          */
-        uint32_t undo_bytes;    
+        uint32_t undo_bytes;
 
         /**
-         * This is the low order bits of the time in seconds when the last 
+         * This is the low order bits of the time in seconds when the last
          * attempt was made to spawn a thread to recover this transaction. It
          * is only meaningful if the transaction is in the dead transaction
          * list, and the spawn_cnt is not zero. 16 bits is enough to measure
@@ -459,14 +449,14 @@ extern "C"
          * seconds for the spawned thread to remove the transaction from the
          * dead list then we will try again.
          */
-        uint16_t spawn_time;    
+        uint16_t spawn_time;
 
         /**
          * This is the number of threads that have been spawned attempting to
          * take ownership of this dead transaction. After a few tries we give
          * up on the presumption that something is seriously wrong.
          */
-        uint8_t spawn_cnt;    
+        uint8_t spawn_cnt;
 
         /* padding for alignment */
         uint8_t _pad1[1];
@@ -482,12 +472,12 @@ extern "C"
          * This is the address of the last operation data written. New
          * operation data must be written below this. It is always 8 byte
          * aligned.
-         * 
+         *
          * This is not maintained atomically with committing undo to exist.
          * Thus it must be recalculated if the thread owning this transaction
          * dies.
          */
-        uint8_t *undo_data;    
+        uint8_t *undo_data;
 
         /**
          * Idle transactions are kept on a freelist for reuse. This is the link
@@ -512,15 +502,10 @@ extern "C"
     size(4*1024)
     {
         /**
-         * The USID that maps to the nvm_type for nvm_undo_blk
-         */
-//        nvm_usid type_usid; //#
-
-        /**
          * This is a link to another page of undo that filled up before this
          * page was added to the transaction. This will be null in the first
          * page allocated for a transaction since it is the end of the list.
-         * 
+         *
          * This link is also used for maintaining a free list of undo blocks.
          * The free list is reconstructed after recovery at region attach.
          */
@@ -548,13 +533,13 @@ extern "C"
          * last transaction to use this undo block. The transaction number is
          * incremented every time a transaction is begun, and assigned to
          * the new transaction. Since undo blocks are moved to the tail of the
-         * undo block free list, there is a tendency for recent undo to still 
+         * undo block free list, there is a tendency for recent undo to still
          * be available for debugging after a crash.
          */
         uint32_t txnum;
 
         /*
-         * Leave some padding for future growth. 
+         * Leave some padding for future growth.
          */
         uint8_t pad[32];
 
@@ -565,7 +550,7 @@ extern "C"
          * is stored at the end of the array growing toward the front. The
          * page is full when the operation array meets the operation data.
          * The data for an operation must be 8 byte aligned, but the size
-         * of the data could be an odd number of bytes leaving some unused 
+         * of the data could be an odd number of bytes leaving some unused
          * padding for alignment.
          */
         uint8_t data[4096 - 64];
@@ -576,13 +561,13 @@ extern "C"
         /**
          * The USID that maps to the nvm_type for nvm_undo_blk
          */
-        nvm_usid type_usid;    
+        nvm_usid type_usid;
 
         /**
          * This is a link to another page of undo that filled up before this
          * page was added to the transaction. This will be null in the first
          * page allocated for a transaction since it is the end of the list.
-         * 
+         *
          * This link is also used for maintaining a free list of undo blocks.
          * The free list is reconstructed after recovery at region attach.
          */
@@ -610,13 +595,13 @@ extern "C"
          * last transaction to use this undo block. The transaction number is
          * incremented every time a transaction is begun, and assigned to
          * the new transaction. Since undo blocks are moved to the tail of the
-         * undo block free list, there is a tendency for recent undo to still 
+         * undo block free list, there is a tendency for recent undo to still
          * be available for debugging after a crash.
          */
         uint32_t txnum;
 
         /*
-         * Leave some padding for future growth. 
+         * Leave some padding for future growth.
          */
         uint8_t _pad1[32];
 
@@ -627,7 +612,7 @@ extern "C"
          * is stored at the end of the array growing toward the front. The
          * page is full when the operation array meets the operation data.
          * The data for an operation must be 8 byte aligned, but the size
-         * of the data could be an odd number of bytes leaving some unused 
+         * of the data could be an odd number of bytes leaving some unused
          * padding for alignment.
          */
         uint8_t data[4096 - 64];
@@ -639,7 +624,7 @@ extern "C"
     /**
      * This struct contains the non-volatile transaction data. This is the data
      * needed to do recovery if the process attached to the region terminates
-     * with transactions that are not idle. If a region needs more 
+     * with transactions that are not idle. If a region needs more
      * concurrent transactions or more undo, then additional instances of
      * this struct can be created.
      */
@@ -653,14 +638,9 @@ extern "C"
     size(1024*1024)
     {
         /**
-         * The USID that maps to the nvm_type for nvm_trans_table
-         */
-//        nvm_usid type_usid; //#
-
-        /**
          * To support additional concurrent transactions and/or more undo
          * blocks, more transaction tables can be linked to this one. There
-         * will only be one nvm_trans_table_data for all the 
+         * will only be one nvm_trans_table_data for all the
          * transaction tables in a region.
          */
         nvm_trans_table ^link;
@@ -693,7 +673,7 @@ extern "C"
         /**
          * To support additional concurrent transactions and/or more undo
          * blocks, more transaction tables can be linked to this one. There
-         * will only be one nvm_trans_table_data for all the 
+         * will only be one nvm_trans_table_data for all the
          * transaction tables in a region.
          */
         nvm_trans_table_srp link; // nvm_trans_table *link
@@ -701,7 +681,7 @@ extern "C"
         /**
          * padding for 128 byte alignment of nvm_transaction
          */
-        uint8_t _pad1[128 - 24];    
+        uint8_t _pad1[128 - 24];
 
         /**
          * This is the array of transaction slots in this transaction table.
@@ -722,22 +702,22 @@ extern "C"
     /* The following defines the structs and constants for representing undo */
     /*************************************************************************/
     /**
-     * Every undo entry has an opcode that defines how it interprets the 
-     * data associated with the entry. 
+     * Every undo entry has an opcode that defines how it interprets the
+     * data associated with the entry.
      */
     enum nvm_opcode
     {
         /**
-         * Ignore this operation. The code never creates an undo record with 
+         * Ignore this operation. The code never creates an undo record with
          * this opcode. Recovery will ignore the undo record. This may be used
          * to prevent recovery from failing when there is a bad undo record.
          * Patching the record's opcode to be zero will avoid applying it/.
          */
         nvm_op_ignore = 0,
         /*
-         * Restore the data in the data. The first 8 bytes of data is 
-         * an address to restore to. The remaining data bytes are the data 
-         * to copy. Note that the data is treated as bytes and thus might 
+         * Restore the data in the data. The first 8 bytes of data is
+         * an address to restore to. The remaining data bytes are the data
+         * to copy. Note that the data is treated as bytes and thus might
          * not be a multiple of 8 bytes.
          */
         nvm_op_restore = 1,
@@ -753,8 +733,8 @@ extern "C"
 
         /**
          * Savepoint for partial roll back. The data contains the undo
-         * operation number of the next save point. A self relative pointer 
-         * follows the operation number. It is used for a pointer to an 
+         * operation number of the next save point. A self relative pointer
+         * follows the operation number. It is used for a pointer to an
          * NVM address which names the savepoint.
          */
         nvm_op_savepoint = 5,
@@ -805,11 +785,11 @@ extern "C"
     };
     typedef enum nvm_opcode nvm_opcode;
     /**
-     * The data area of an undo page starts with an array of nvm_operation's. 
+     * The data area of an undo page starts with an array of nvm_operation's.
      * Each operation has an opcode to describe what it does and the number
-     * of bytes of data stored at the end of the block for it to operate 
-     * on. Note that there are only 12 bits of data size so this imposes 
-     * a limit of 4095 bytes of data for any operation. An operation may 
+     * of bytes of data stored at the end of the block for it to operate
+     * on. Note that there are only 12 bits of data size so this imposes
+     * a limit of 4095 bytes of data for any operation. An operation may
      * contain an odd number of data bytes, but the next operation data
      * will always start at an 8 byte boundary.
      */
@@ -827,11 +807,11 @@ extern "C"
     };
 #endif //NVM_EXT
     typedef struct nvm_operation nvm_operation;
-    
+
     /**
      * This struct is the data for an nvm_op_restore operation. It is the
      * most common undo operation. It holds data that needs to be restored
-     * to undo changes made by the transaction. It also has a pointer to 
+     * to undo changes made by the transaction. It also has a pointer to
      * the location to restore.
      */
 #ifdef NVM_EXT
@@ -907,9 +887,6 @@ extern "C"
          * succeeds. */
         uint8_t new_level;
 
-        /** Pad to pointer alignment. */
-        uint8_t _pad1[1];
-
         /** pointer to the mutex being locked. */
         nvm_amutex ^mutex;
     };
@@ -941,16 +918,16 @@ extern "C"
         nvm_amutex_srp mutex; //nvm_amutex ^mutex
     };
 #endif //NVM_EXT
-    
+
     /**
      * This struct is the data for an nvm_op_on_unlock operation. It contains
      * the USID of the function to call and the context to pass to it when
-     * this transaction unlocks. These form a linked list so they can be 
-     * quickly found at commit time. It also contains the count of previous 
+     * this transaction unlocks. These form a linked list so they can be
+     * quickly found at commit time. It also contains the count of previous
      * undo operations to determine which nested transaction it is associated
      * with.
-     * 
-     * These are linked into the same list as the nvm_lock undo records. To 
+     *
+     * These are linked into the same list as the nvm_lock undo records. To
      * make this work it is necessary that the fields prev, undo_ops, and
      * state must be identical in both structs.
      */
@@ -966,9 +943,6 @@ extern "C"
         /** This is nvm_lock_callback to indicate this is actually an
          * nvm_on_unlock record. */
         uint8_t state;
-
-        /** Pad to pointer alignment */
-        uint8_t _pad1[3];
 
         /** This is the USID that identifies the function to call  */
         void (|func@)();
@@ -999,7 +973,7 @@ extern "C"
         uint8_t data[];
     };
 #endif //NVM_EXT
-    
+
     /**
      * This struct is the data for an nvm_op_savepoint. These form
      * a linked list so that the savepoint can be found before rollback to
@@ -1014,9 +988,6 @@ extern "C"
 
         /** undo operations before this one */
         uint32_t undo_ops;
-
-        /** Pad to pointer alignment */
-        uint8_t _pad1[4];
 
         /** Arbitrary pointer to identify the savepoint. */
         void ^name;
@@ -1037,12 +1008,12 @@ extern "C"
         void_srp name; //void ^name
     };
 #endif //NVM_EXT
-    
+
 
     /**
      * This struct is the data for an nvm_op_nested operation. These form
      * a linked list so that the current transaction can be found when a
-     * nested transaction aborts or commits. It also contains the count of 
+     * nested transaction aborts or commits. It also contains the count of
      * previous undo operations to identify other undo records that are in
      * parent transactions. It holds the transaction state of the nested
      * transaction.
@@ -1072,7 +1043,7 @@ extern "C"
         nvm_trans_state state;
     };
 #endif //NVM_EXT
-    
+
     /**
      * This struct is the data for an nvm_op_on_abort operation. It contains
      * the USID of the function to call and the context to pass to it when
@@ -1097,12 +1068,12 @@ extern "C"
         uint8_t data[];
     };
 #endif //NVM_EXT
-    
+
     /**
      * This struct is the data for an nvm_op_on_commit operation. It contains
      * the USID of the function to call and the context to pass to it when
-     * this transaction commits. These form a linked list so they can be 
-     * quickly found at commit time. It also contains the count of previous 
+     * this transaction commits. These form a linked list so they can be
+     * quickly found at commit time. It also contains the count of previous
      * undo operations to determine which nested transaction it is associated
      * with.
      */
@@ -1114,9 +1085,6 @@ extern "C"
 
         /** undo operations before this one */
         uint32_t undo_ops;
-
-        /** Pad to pointer alignment */
-        uint8_t _pad1[4];
 
         /** Transient forward link used at commit and ignored otherwise. */
         transient nvm_on_commit ^next;
@@ -1149,13 +1117,13 @@ extern "C"
         uint8_t data[];
     };
 #endif //NVM_EXT
-    
+
     /**
      * This is the volatile memory for managing the transaction tables in one
      * NVM region. Exactly one nvm_trans_table_data is created when a region
      * is attached, even if the region has multiple nvm_trans_table structs
      * allocated in NVM.
-     * 
+     *
      * This is created by nvm_recover at attach time.
      */
 #ifdef NVM_EXT
@@ -1165,7 +1133,7 @@ extern "C"
          * This points to the NVM region managed by this nvm_trans_table_data.
          */
         nvm_region ^region;
-        
+
         /**
          * This is the mutex that is acquired when allocating or freeing a
          * transaction.
@@ -1173,7 +1141,7 @@ extern "C"
         nvms_mutex trans_mutex;
 
         /**
-         * This is a condition variable that a thread waits on if there are 
+         * This is a condition variable that a thread waits on if there are
          * insufficient free nvm_ransaction structs.
          */
         nvms_cond trans_cond;
@@ -1197,7 +1165,7 @@ extern "C"
          * This is the number of dead transactions that are in recovery. This
          * includes transactions on the dead list as well as those being
          * worked on by a recovery thread. Since these should complete on
-         * their own, detach will wait for the recovery to complete. 
+         * their own, detach will wait for the recovery to complete.
          */
         uint32_t dtrans_cnt;
 
@@ -1253,15 +1221,15 @@ extern "C"
         nvms_mutex undo_mutex;
 
         /**
-         * This is a condition variable that a thread waits on if there are 
+         * This is a condition variable that a thread waits on if there are
          * insufficient free NVundo objects.
          */
         nvms_cond undo_cond;
 
         /**
          * This is the head of the linked list of free undo pages. Allocation
-         * of undo takes pages from the head of the list. 
-         * 
+         * of undo takes pages from the head of the list.
+         *
          * The free list is reconstructed to contain all undo blocks at
          * region attach. Thus no undo is needed for the undo list itself.
          */
@@ -1274,7 +1242,7 @@ extern "C"
          * This points to the NVM region managed by this nvm_trans_table_data.
          */
         nvm_region *region;
-        
+
         /**
          * This is the mutex that is acquired when allocating or freeing a
          * transaction.
@@ -1282,7 +1250,7 @@ extern "C"
         nvms_mutex trans_mutex;
 
         /**
-         * This is a condition variable that a thread waits on if there are 
+         * This is a condition variable that a thread waits on if there are
          * insufficient free nvm_ransaction structs.
          */
         nvms_cond trans_cond;
@@ -1306,7 +1274,7 @@ extern "C"
          * This is the number of dead transactions that are in recovery. This
          * includes transactions on the dead list as well as those being
          * worked on by a recovery thread. Since these should complete on
-         * their own, detach will wait for the recovery to complete. 
+         * their own, detach will wait for the recovery to complete.
          */
         uint32_t dtrans_cnt;
 
@@ -1362,22 +1330,22 @@ extern "C"
         nvms_mutex undo_mutex;
 
         /**
-         * This is a condition variable that a thread waits on if there are 
+         * This is a condition variable that a thread waits on if there are
          * insufficient free NVundo objects.
          */
         nvms_cond undo_cond;
 
         /**
          * This is the head of the linked list of free undo pages. Allocation
-         * of undo takes pages from the head of the list. 
-         * 
+         * of undo takes pages from the head of the list.
+         *
          * The free list is reconstructed to contain all undo blocks at
          * region attach. Thus no undo is needed for the undo list itself.
          */
-        nvm_undo_blk *free_undo;    
+        nvm_undo_blk *free_undo;
     };
 #endif //NVM_EXT
-    
+
 
     /**************************************************************************/
     /* The following defines the private functions for transaction management */
@@ -1385,14 +1353,14 @@ extern "C"
 
     /**
      * Create the initial nvm_trans_table at region creation time.
-     * 
+     *
      * @param[in] rg
      * The nvm_region to store the table in.
-     * 
-     * @param[in] rh 
+     *
+     * @param[in] rh
      * The root heap to do a non-transactional allocation of the table
-     * 
-     * @return 
+     *
+     * @return
      * The initial nvm_trans_table in NVM.
      */
 #ifdef NVM_EXT
@@ -1406,18 +1374,18 @@ extern "C"
         nvm_heap *rh
         );
 #endif //NVM_EXT
-    
+
     /**
-     * Ensure the NVM transaction system for this region is ready for use. This 
-     * may be called multiple times by multiple threads. If initialization is 
-     * already done then this will return quickly. It is possible that the 
-     * thread doing recovery is not the same thread that did the attach. It may 
+     * Ensure the NVM transaction system for this region is ready for use. This
+     * may be called multiple times by multiple threads. If initialization is
+     * already done then this will return quickly. It is possible that the
+     * thread doing recovery is not the same thread that did the attach. It may
      * have died or lost the race to lock the region.
-     * 
+     *
      * Construct the nvm_trans_table_data in volatile memory. If there are any
      * active or committing transactions they will be recovered. The volatile
-     * transaction table data is allocated from application global memory. 
-     * 
+     * transaction table data is allocated from application global memory.
+     *
      * This must be called with the application data mutex held to ensure the
      * region is not detached while looking at the region. However the mutex
      * is unlocked and relocked if recovery is actually spawned.
@@ -1430,30 +1398,30 @@ extern "C"
 #else
     void nvm_recover(nvm_desc desc);
 #endif //NVM_EXT
-    
+
     /**
-     * This adds a new NVM lock undo record to the current transaction and 
-     * returns a pointer to it. It also returns the slot number of the 
+     * This adds a new NVM lock undo record to the current transaction and
+     * returns a pointer to it. It also returns the slot number of the
      * current transaction to store in the owners field if acquired X. The
-     * lock state will be set to free before the record is added to the 
+     * lock state will be set to free before the record is added to the
      * transaction.
-     * 
+     *
      * If the current max lock level will be set in the nvm_lkrec so that the
      * caller can decide if there is a deadlock problem.
-     * 
+     *
      * @param[in] tx
      * The transaction that is acquiring a lock
-     * 
+     *
      * @param[in] td
      * The thread data for the thread that owns the transaction.
-     * 
+     *
      * @param[in] mx
      * Address of the nvm_amutex that will be locked.
-     * 
+     *
      * @param[in] st
      * The initial state for the lock. This will indicate if this is a share
      * or exclusive lock.
-     * 
+     *
      * @return
      * Pointer to the new nvm_lkrec struct
      */
@@ -1470,16 +1438,16 @@ extern "C"
         nvm_amutex *mx,
         nvm_lock_state st);
 #endif //NVM_EXT
-    
+
     /**
-     * Apply the last undo record in the current transaction. This is generally 
+     * Apply the last undo record in the current transaction. This is generally
      * used to throw away an unneeded undo record that is a no-op. For example
      * it is used to remove the nvm_lkrec record for a lock operation that timed
      * out.
-     * 
+     *
      * @param[in] tx
      * The transaction to rollback one record
-     * 
+     *
      * @param[in] td
      * The thread data for the thread that owns the transaction.
      */
@@ -1488,46 +1456,46 @@ extern "C"
 #else
     void nvm_apply_one(nvm_transaction *tx, nvm_thread_data *td);
 #endif //NVM_EXT
-    
+
     /**
      * This counts the number of share locks on an NVM mutex before beginning
      * recovery of the dead transactions at NVM region attach time.
-     * 
+     *
      * @param[in] ttd
      * The volatile memory transaction table data. It has the linked list of
      * dead transactions to scan.
-     * 
+     *
      * @param[in] mutex
      * The mutex to search for.
-     * 
-     * @return 
+     *
+     * @return
      */
 #ifdef NVM_EXT
     int nvm_find_shares(nvm_trans_table_data *ttd, nvm_amutex ^mutex);
 #else
     int nvm_find_shares(nvm_trans_table_data *ttd, nvm_amutex *mutex);
 #endif //NVM_EXT
-    
+
     /**
      * This checks to see if the region is ready for a clean detach. It must
-     * not have any active transactions. Once this is verified, future 
+     * not have any active transactions. Once this is verified, future
      * transactions are prevented from starting. If there are dead transactions
      * in recovery this will block until the recovery is done.
-     * 
+     *
      * This is called and returns with the application data mutex locked
-     * 
+     *
      * @param[in] rd
      * The region data for the region to detach
-     * 
-     * @return 
+     *
+     * @return
      * 1 if no errors, 0 if failed and errno has an error.
      */
     int nvm_trans_detach(nvm_region_data *rd);
 
     /**
-     * This frees up a nvm_trans_table_data allocated by nvm_recover. 
+     * This frees up a nvm_trans_table_data allocated by nvm_recover.
      * @param trans_table points to trans_table pointer in region data
-     * @return 
+     * @return
      */
     int nvm_trans_free_table(nvm_trans_table_data **trans_table);
 
@@ -1535,17 +1503,17 @@ extern "C"
      * This spawns recovery threads to take over dead transactions and end them.
      * It scans the dead transaction list in the transaction table and spawns
      * a thread to recover any that have not yet had a recovery thread spawned,
-     * or had a thread spawned that apparently died before taking over the 
+     * or had a thread spawned that apparently died before taking over the
      * transaction.
-     * 
-     * The caller must hold the trans_mutex for the transaction table data. It 
+     *
+     * The caller must hold the trans_mutex for the transaction table data. It
      * is still held on return.
-     * 
+     *
      * @param ttd
      * Pointer to the transaction table to scan.
      */
     void nvm_recover_dead(nvm_trans_table_data *ttd);
-    
+
     /**
      * This function recovers one base transaction and all its nested
      * transactions. Each transaction is either aborted or its commit is
