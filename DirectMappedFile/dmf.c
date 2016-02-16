@@ -457,10 +457,11 @@ int dmf_query(dmf_file *dmf, dmf_stat *dstat)
 
     /* Save region related information. */
     nvm_region_stat rstat;
-    if (nvm_query_region(dmf->desc, &rstat))
+    if (!nvm_query_region(dmf->desc, &rstat))
             return -1;
     dstat->psize = rstat.psize;
     dstat->vsize = rstat.vsize;
+    dstat->addr = (void*)rstat.base;
 
     return 0;
 }

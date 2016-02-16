@@ -121,6 +121,11 @@ struct dmf_stat
      * bytes.
      */
     size_t vsize;
+
+    /**
+     * This is the virtual address where the file is mapped in.
+     */
+    void *addr;
 };
 typedef struct dmf_stat dmf_stat;
 
