@@ -820,9 +820,6 @@ int nvm_resize_heap(nvm_heap ^heap, size_t psize)
                 /* shrinking */
                 nvm_abort();
                 errno = ENOSPC;
-//                printf("insufficient space at end:%ld shrink:%ld, last:%ld\n",
-//                        (nvb_end - nvb_last - 1) * sizeof(nvm_blk)
-//                        - fls=>free_size[0], shrink, nvb_last=>allocated);
                 return 0;
             }
         }
@@ -960,9 +957,6 @@ int nvm_resize_heap(nvm_heap *heap, size_t psize)
             nvm_abort();
             nvm_txend();
             errno = ENOSPC;
-//            printf("insufficient space at end:%ld shrink:%ld, last:%ld\n",
-//                    (nvb_end - nvb_last - 1) * sizeof(nvm_blk)
-//                    - fls->free_size[0], shrink, nvb_last->allocated);
             return 0;
         }
     }
@@ -1338,7 +1332,7 @@ int nvm_query_heap(
  * This returns the size in bytes of the minimum allocation for a
  * persistent struct. This is useful for sizing NVM regions. The size
  * returned includes the nvm_blk that is allocated just before the
- * application data. It does not include space that may be wasted to 
+ * application data. It does not include space that may be wasted to
  * avoid leaving behind a tiny free block.
  *
  * @param[in] def

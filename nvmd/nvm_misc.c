@@ -207,6 +207,7 @@ void nvm_thread_fini(void)
     if (td->txdepth != 0)
         nvms_assert_fail("Calling nvm_thread_fini in a transaction");
 
+#ifdef NVM_REPORT_STATS
     /*  Report persist statistics */
     if (td->trans_cnt)
     {
@@ -218,6 +219,7 @@ void nvm_thread_fini(void)
                 td->persist_lock / tc, td->persist_tx / tc,
                 td->persist_commit / tc, td->persist_abort / tc);
     }
+#endif
 
     /* Release the thread data itself */
     if (td->flush_cache)

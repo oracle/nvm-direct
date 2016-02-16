@@ -4148,8 +4148,6 @@ void nvm_txconfig_callback(nvm_txconfig_ctx *ctx)
     nvm_transaction *ptx = 0; // previous free transaction
     while (ftx)
     {
-        //        printf("ftx=%p ftx->link=%p ptx=%p ptx->link=%p\n",
-        //                 ftx, ftx->link, ptx, ptx ? ptx->link : NULL);
         nvm_verify(ftx, shapeof(nvm_transaction));
         if (ftx->slot > ctx->txn_slots && ftx->state == nvm_idle_state)
         {
@@ -4864,9 +4862,11 @@ void nvm_txrecover(void *ctx)
         nt = nt=>prev;
     }
 
+#ifdef NVM_REPORT_STATS
     uint32_t txnum = tx=>txnum;
     printf("Recovering transaction %d with %d undo records\n",
             txnum, tx=>undo_ops);
+#endif
 
     /* Keep ending transactions until they are all gone. */
     while (td->txdepth != 0)
@@ -4902,7 +4902,6 @@ void nvm_txrecover(void *ctx)
     /* Transaction is now recovered and might already be in use by another
      * thread. We have done our job so exit this thread. */
     nvm_thread_fini();
-    //    printf("Transaction %d recovered\n", txnum);
 }
 #else
 void nvm_txrecover(void *ctx)
@@ -4959,9 +4958,11 @@ void nvm_txrecover(void *ctx)
         nt = nvm_nested_get(&nt->prev);
     }
 
+#ifdef NVM_REPORT_STATS
     uint32_t txnum = tx->txnum;
     printf("Recovering transaction %d with %d undo records\n",
             txnum, tx->undo_ops);
+#endif
 
     /* Keep ending transactions until they are all gone. */
     while (td->txdepth != 0)
@@ -5217,7 +5218,9 @@ void nvm_recover(nvm_desc desc)
     /* no longer in recovery so detach is allowed */
     ttd->recovering = 0;
     nvms_unlock_mutex(ttd->trans_mutex);
+#ifdef NVM_REPORT_STATS
     printf("Recovery complete\n");
+#endif
 
     /* Our caller expects us to return with the app data mutex locked */
     nvms_lock_mutex(ad->mutex, 1);
@@ -5434,7 +5437,9 @@ void nvm_recover(nvm_desc desc)
     /* no longer in recovery so detach is allowed */
     ttd->recovering = 0;
     nvms_unlock_mutex(ttd->trans_mutex);
+#ifdef NVM_REPORT_STATS
     printf("Recovery complete\n");
+#endif
 
     /* Our caller expects us to return with the app data mutex locked */
     nvms_lock_mutex(ad->mutex, 1);
